@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Pocket Budget dark wallet icon</title>
+  <desc id="desc">A dark iPhone-style app icon with a teal wallet, mint banknotes, and a gold spending chart coin.</desc>
+  <defs>
+    <radialGradient id="bg" cx="28%" cy="18%" r="105%">
+      <stop offset="0" stop-color="#173532"/>
+      <stop offset="0.38" stop-color="#101918"/>
+      <stop offset="1" stop-color="#070909"/>
+    </radialGradient>
+    <linearGradient id="noteBack" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DFFFF6"/>
+      <stop offset="1" stop-color="#75D7C3"/>
+    </linearGradient>
+    <linearGradient id="noteFront" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#A5ECDD"/>
+      <stop offset="1" stop-color="#38A997"/>
+    </linearGradient>
+    <linearGradient id="wallet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A6B63"/>
+      <stop offset="0.55" stop-color="#10524D"/>
+      <stop offset="1" stop-color="#0A3432"/>
+    </linearGradient>
+    <linearGradient id="walletLip" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2B8F83"/>
+      <stop offset="1" stop-color="#155D56"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF0B5"/>
+      <stop offset="0.48" stop-color="#FFD36C"/>
+      <stop offset="1" stop-color="#E5A93B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed dark background. iOS applies the rounded-square mask. -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="164" cy="142" r="250" fill="#1FB9A1" opacity="0.09"/>
+  <circle cx="912" cy="874" r="310" fill="#0B6B62" opacity="0.13"/>
+  <path d="M104 112C292 34 524 38 752 120" fill="none" stroke="#6AE4D0" stroke-width="15" opacity="0.07" stroke-linecap="round"/>
+
+  <!-- Soft depth shadows without relying on filter effects. -->
+  <rect x="175" y="416" width="684" height="365" rx="92" fill="#000" opacity="0.42" transform="translate(0 25)"/>
+  <circle cx="767" cy="763" r="145" fill="#000" opacity="0.38" transform="translate(0 20)"/>
+
+  <!-- Banknotes -->
+  <g transform="rotate(-10 500 360)">
+    <rect x="278" y="220" width="500" height="286" rx="48" fill="url(#noteBack)"/>
+    <rect x="312" y="254" width="432" height="218" rx="32" fill="none" stroke="#2E9F8F" stroke-width="19" stroke-dasharray="26 20"/>
+    <circle cx="408" cy="362" r="42" fill="#5CC4B1" opacity="0.76"/>
+    <path d="M494 398l72-74 56 45 70-90" fill="none" stroke="#0B5A54" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M660 278h38v40" fill="none" stroke="#0B5A54" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(5 520 390)">
+    <rect x="328" y="270" width="458" height="255" rx="45" fill="url(#noteFront)"/>
+    <rect x="362" y="304" width="390" height="187" rx="29" fill="none" stroke="#E6FFF9" stroke-width="17" opacity="0.83"/>
+    <circle cx="447" cy="398" r="38" fill="#E6FFF9" opacity="0.68"/>
+    <path d="M529 371h100" stroke="#0A5A53" stroke-width="21" stroke-linecap="round" opacity="0.8"/>
+    <path d="M529 424h145" stroke="#0A5A53" stroke-width="21" stroke-linecap="round" opacity="0.8"/>
+  </g>
+
+  <!-- Wallet body -->
+  <rect x="166" y="383" width="676" height="374" rx="94" fill="url(#wallet)"/>
+  <path d="M166 470c141 59 343 74 676 30v163c0 52-42 94-94 94H260c-52 0-94-42-94-94V470z" fill="#0D4541" opacity="0.98"/>
+  <path d="M196 469c139 48 333 60 606 31" fill="none" stroke="#58C6B5" stroke-width="17" stroke-linecap="round" stroke-dasharray="24 23" opacity="0.9"/>
+  <path d="M226 417h521" fill="none" stroke="#5ED1BE" stroke-width="12" opacity="0.25" stroke-linecap="round"/>
+
+  <!-- Clasp -->
+  <path d="M646 493h191c50 0 91 40 91 90s-41 90-91 90H646c-45 0-82-37-82-82v-16c0-45 37-82 82-82z" fill="#062A29"/>
+  <path d="M661 524h169c33 0 59 26 59 59s-26 59-59 59H661c-29 0-52-23-52-52v-14c0-29 23-52 52-52z" fill="url(#walletLip)"/>
+  <circle cx="804" cy="583" r="34" fill="#F4FFFC"/>
+  <circle cx="804" cy="583" r="15" fill="#6FD3C1"/>
+
+  <!-- Finance coin without letters -->
+  <circle cx="756" cy="758" r="144" fill="#031E1D"/>
+  <circle cx="756" cy="758" r="117" fill="url(#coin)"/>
+  <circle cx="756" cy="758" r="89" fill="#FFE6A1" opacity="0.45"/>
+  <circle cx="756" cy="758" r="89" fill="none" stroke="#FFF5D5" stroke-width="14" opacity="0.9"/>
+  <rect x="695" y="766" width="31" height="55" rx="10" fill="#0B514C"/>
+  <rect x="741" y="730" width="31" height="91" rx="10" fill="#0B514C"/>
+  <rect x="787" y="691" width="31" height="130" rx="10" fill="#0B514C"/>
+</svg>

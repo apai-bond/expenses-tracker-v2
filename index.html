@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta id="themeColorMeta" name="theme-color" content="#f3f6f8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pocket Budget">
+  <title>Pocket Budget</title>
+
+  <script>
+    (() => {
+      const key = "pocket-budget-theme";
+      let saved = null;
+      try { saved = localStorage.getItem(key); } catch (_) {}
+      const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+      const theme = saved === "light" || saved === "dark" ? saved : (systemDark ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+      if (window.navigator.standalone === true) {
+        document.documentElement.classList.add("ios-standalone");
+      }
+    })();
+  </script>
+
+  <link rel="manifest" href="manifest.webmanifest?v=26">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=26">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=26">
+  <link rel="stylesheet" href="styles.css?v=26">
+
+  <script src="cycle.js?v=26" defer></script>
+  <script src="db.js?v=26" defer></script>
+  <script src="backup-crypto.js?v=26" defer></script>
+  <script src="app.js?v=26" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PERSONAL FINANCE</p>
+        <h1>Pocket Budget</h1>
+      </div>
+      <div class="topbar-actions">
+        <label class="month-label" for="monthPicker">Budget month</label>
+        <div class="topbar-control-row">
+          <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" title="Switch to dark mode">
+            <span id="themeIcon" aria-hidden="true">&#9790;</span>
+          </button>
+          <input id="monthPicker" class="month-picker" type="month">
+        </div>
+      </div>
+    </header>
+
+    <div class="engine-status" id="engineStatus">Starting local database...</div>
+
+
+    <main>
+      <section id="homeView" class="view active" aria-label="Home dashboard">
+        <div id="setupNotice" class="notice hidden">
+          <strong>Set up this month first.</strong>
+          <span>Add your salary, saving target, and actual salary date in Monthly Setup.</span>
+          <button type="button" data-go-view="settings">Open setup</button>
+        </div>
+
+        <div class="summary-grid">
+          <article class="summary-card income-card">
+            <span>Total income</span>
+            <strong id="totalIncome">RM 0.00</strong>
+            <small>Salary plus other income</small>
+          </article>
+          <article class="summary-card expense-card">
+            <span>Expenses</span>
+            <strong id="totalExpenses">RM 0.00</strong>
+            <small>Spent in this salary cycle</small>
+          </article>
+          <article class="summary-card saving-card">
+            <span>Saved</span>
+            <strong id="totalSavings">RM 0.00</strong>
+            <small>Actual saving entries</small>
+          </article>
+          <article class="summary-card balance-card">
+            <span>Available</span>
+            <strong id="availableBalance">RM 0.00</strong>
+            <small>Income minus expenses and savings</small>
+          </article>
+        </div>
+
+        <section class="panel saving-panel">
+          <div class="panel-heading compact">
+            <div>
+              <p class="section-kicker">SAVING TARGET</p>
+              <h2 id="savingTargetText">RM 0.00 of RM 0.00</h2>
+            </div>
+            <strong id="savingPercent">0%</strong>
+          </div>
+          <div class="progress-track" aria-label="Saving target progress">
+            <div id="savingProgress" class="progress-fill"></div>
+          </div>
+        </section>
+
+        <div class="insight-grid">
+          <article class="mini-card">
+            <span>Savings rate</span>
+            <strong id="savingsRate">0%</strong>
+          </article>
+          <article class="mini-card">
+            <span>Top category</span>
+            <strong id="topCategory">-</strong>
+          </article>
+          <article class="mini-card">
+            <span>Daily average</span>
+            <strong id="averageDaily">RM 0.00</strong>
+          </article>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">SALARY CYCLE REPORT</p>
+              <h2>Expenses by category</h2>
+            </div>
+          </div>
+          <div class="chart-layout">
+            <div class="donut-wrap">
+              <canvas id="categoryChart" width="260" height="260" aria-label="Expense category doughnut chart"></canvas>
+              <div class="donut-center">
+                <small>Total</small>
+                <strong id="chartTotal">RM 0</strong>
+              </div>
+            </div>
+            <div id="chartLegend" class="chart-legend"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">SPENDING BREAKDOWN</p>
+              <h2>Highest expense categories</h2>
+            </div>
+          </div>
+          <div id="categoryBars" class="category-bars"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">LATEST ACTIVITY</p>
+              <h2>Recent transactions</h2>
+            </div>
+            <button class="text-button" type="button" data-go-view="transactions">View all</button>
+          </div>
+          <div id="recentTransactions" class="transaction-list"></div>
+        </section>
+      </section>
+
+      <section id="transactionsView" class="view" aria-label="Transactions">
+        <div class="page-heading">
+          <div>
+            <p class="section-kicker">HISTORY</p>
+            <h2>Transactions</h2>
+            <p id="transactionsCycleLabel" class="page-context"></p>
+          </div>
+          <span id="transactionCount" class="count-badge">0 records</span>
+        </div>
+
+        <div class="filter-row">
+          <input id="transactionSearch" type="search" placeholder="Search notes or category">
+          <select id="transactionTypeFilter">
+            <option value="all">All types</option>
+            <option value="expense">Expenses</option>
+            <option value="income">Income</option>
+            <option value="saving">Savings</option>
+          </select>
+        </div>
+
+        <div id="allTransactions" class="transaction-list full-list"></div>
+      </section>
+
+      <section id="addView" class="view" aria-label="Add transaction">
+        <div class="page-heading">
+          <div>
+            <p class="section-kicker">NEW RECORD</p>
+            <h2 id="transactionFormTitle">Add transaction</h2>
+            <p id="addCycleLabel" class="page-context"></p>
+          </div>
+        </div>
+
+        <form id="transactionForm" class="panel form-panel">
+          <input id="editingId" type="hidden">
+
+          <div class="type-switch" role="group" aria-label="Transaction type">
+            <button class="type-button active" type="button" data-type="expense">Expense</button>
+            <button class="type-button" type="button" data-type="income">Income</button>
+            <button class="type-button" type="button" data-type="saving">Saving</button>
+          </div>
+          <input id="transactionType" type="hidden" value="expense">
+
+          <label class="field amount-field">
+            <span>Amount</span>
+            <div class="amount-input-wrap">
+              <span>RM</span>
+              <input id="transactionAmount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required>
+            </div>
+          </label>
+
+          <div class="field-grid">
+            <label class="field date-field">
+              <span>Date</span>
+              <input id="transactionDate" type="date" required>
+            </label>
+            <label class="field">
+              <span>Category</span>
+              <select id="transactionCategory" required></select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Note</span>
+            <input id="transactionNote" type="text" maxlength="120" placeholder="Example: Weekly groceries">
+          </label>
+
+          <div class="form-actions">
+            <button id="cancelEditButton" class="secondary-button hidden" type="button">Cancel edit</button>
+            <button class="primary-button" type="submit">Save transaction</button>
+          </div>
+        </form>
+      </section>
+
+
+      <section id="sheetView" class="view" aria-label="Custom sheet">
+        <div class="page-heading sheet-heading">
+          <div>
+            <p class="section-kicker">FREE RECORD</p>
+            <h2>Custom sheet</h2>
+            <p class="page-context">Use this empty spreadsheet for any record that is not directly related to expenses.</p>
+          </div>
+        </div>
+
+        <section class="panel sheet-panel">
+          <div class="sheet-info-launch">
+            <button id="sheetInfoButton" class="secondary-button sheet-info-button" type="button" aria-haspopup="dialog" aria-controls="spreadsheetInfoDialog">
+              Spreadsheet Information
+            </button>
+          </div>
+
+          <section class="sheet-value-link" aria-label="Link a dashboard value to the sheet">
+            <div class="sheet-value-link-heading">
+              <div>
+                <span>Dashboard link</span>
+                <strong>Display a live budget value in any cell</strong>
+              </div>
+              <span id="sheetLinkSummary" class="sheet-link-summary">No linked cells</span>
+            </div>
+
+            <div class="sheet-value-link-grid">
+              <label>
+                <span>Value</span>
+                <select id="sheetLinkMetric">
+                  <option value="income">Total income</option>
+                  <option value="expenses">Expenses</option>
+                  <option value="saved">Saved</option>
+                  <option value="available" selected>Available balance</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Cell</span>
+                <input id="sheetLinkCell" type="text" value="A10" maxlength="8" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A10">
+              </label>
+            </div>
+
+            <div class="sheet-value-link-actions">
+              <button id="sheetLinkValueButton" class="primary-button compact-button" type="button">Link value</button>
+              <button id="sheetRefreshLinksButton" class="secondary-button compact-button" type="button">Refresh</button>
+              <button id="sheetUnlinkValueButton" class="secondary-button compact-button" type="button">Unlink cell</button>
+            </div>
+
+            <p class="form-help">The linked cell updates automatically when the selected budget month, salary, savings, or transactions change.</p>
+          </section>
+
+          <div class="formula-bar" aria-label="Formula bar">
+            <span id="activeCellLabel">A1</span>
+            <input id="formulaInput" type="text" placeholder="Select a cell or type formula, e.g. =SUM(B2:B10)">
+          </div>
+
+          <div class="sheet-actions-area">
+            <div class="panel-heading sheet-title-row">
+              <div>
+                <p class="section-kicker">TABLE</p>
+                <h2 id="customSheetTitle">Quick table</h2>
+              </div>
+            </div>
+
+            <div class="sheet-toolbar" aria-label="Spreadsheet tools">
+              <button id="sheetAddRowButton" class="secondary-button compact-button" type="button">Add row</button>
+              <button id="sheetAddColumnButton" class="secondary-button compact-button" type="button">Add column</button>
+              <button id="sheetSizeButton" class="secondary-button compact-button" type="button" aria-expanded="false" aria-controls="sheetSizeControls">Cell size</button>
+              <button id="sheetCurrencyButton" class="secondary-button compact-button" type="button" aria-pressed="false">RM format</button>
+              <button id="sheetMergeButton" class="secondary-button compact-button" type="button" aria-pressed="false">Merge cells</button>
+              <button id="sheetHeaderButton" class="secondary-button compact-button" type="button">Header row</button>
+              <button id="sheetExportButton" class="secondary-button compact-button" type="button">Export CSV</button>
+              <button id="sheetClearButton" class="danger-button compact-button" type="button">Clear</button>
+            </div>
+
+            <div id="sheetSizeControls" class="sheet-size-controls" hidden>
+              <div class="sheet-size-heading">
+                <div>
+                  <span>Selected cell</span>
+                  <strong id="sheetSizeCellLabel">A1</strong>
+                </div>
+                <button id="sheetCloseSizeButton" class="secondary-button compact-button" type="button">Done</button>
+              </div>
+
+              <label class="sheet-size-field">
+                <span>Column <strong id="sheetColumnLabel">A</strong> width</span>
+                <div class="sheet-range-row">
+                  <input id="sheetColumnWidth" type="range" min="48" max="320" step="2" value="112">
+                  <output id="sheetColumnWidthValue" for="sheetColumnWidth">112 px</output>
+                </div>
+              </label>
+
+              <label class="sheet-size-field">
+                <span>Row <strong id="sheetRowLabel">1</strong> height</span>
+                <div class="sheet-range-row">
+                  <input id="sheetRowHeight" type="range" min="32" max="180" step="2" value="56">
+                  <output id="sheetRowHeightValue" for="sheetRowHeight">56 px</output>
+                </div>
+              </label>
+
+              <div class="sheet-size-actions">
+                <button id="sheetApplyWidthAllButton" class="secondary-button compact-button" type="button">Width to all</button>
+                <button id="sheetApplyHeightAllButton" class="secondary-button compact-button" type="button">Height to all</button>
+                <button id="sheetResetSelectedSizeButton" class="secondary-button compact-button" type="button">Reset selected</button>
+                <button id="sheetResetAllSizesButton" class="secondary-button compact-button" type="button">Reset all sizes</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sheet-scroll" aria-label="Editable spreadsheet">
+            <table id="customSheetTable" class="custom-sheet-table"></table>
+          </div>
+        </section>
+
+        <dialog id="spreadsheetInfoDialog" class="spreadsheet-info-dialog" aria-labelledby="spreadsheetInfoTitle">
+          <div class="spreadsheet-info-card">
+            <div class="spreadsheet-info-heading">
+              <div>
+                <p class="section-kicker">HELP</p>
+                <h2 id="spreadsheetInfoTitle">Spreadsheet Information</h2>
+              </div>
+              <button id="sheetInfoCloseButton" class="dialog-close-button" type="button" aria-label="Close spreadsheet information">&times;</button>
+            </div>
+
+            <div class="spreadsheet-info-content">
+              <section class="info-section">
+                <h3>Current sheet limits</h3>
+                <div class="info-limit-grid">
+                  <div><span>Maximum rows</span><strong id="sheetInfoMaxRows">120</strong></div>
+                  <div><span>Maximum columns</span><strong><span id="sheetInfoMaxColumns">52</span> (A-<span id="sheetInfoLastColumn">AZ</span>)</strong></div>
+                </div>
+                <p>The sheet starts with 20 rows. Use <strong>Add row</strong> and <strong>Add column</strong> to expand it until these limits.</p>
+              </section>
+
+              <section class="info-section">
+                <h3>Basic calculations</h3>
+                <div class="formula-reference">
+                  <code>=A1+B1</code><span>Addition</span>
+                  <code>=A1-B1</code><span>Subtraction</span>
+                  <code>=A1*B1</code><span>Multiplication</span>
+                  <code>=A1/B1</code><span>Division</span>
+                  <code>=(A1+B1)*2</code><span>Combined calculation using brackets</span>
+                </div>
+              </section>
+
+              <section class="info-section">
+                <h3>Functions</h3>
+                <div class="formula-reference">
+                  <code>=SUM(B2:B10)</code><span>Add all numeric values</span>
+                  <code>=AVG(C2:C8)</code><span>Average numeric values</span>
+                  <code>=MIN(B2:B10)</code><span>Smallest value</span>
+                  <code>=MAX(B2:B10)</code><span>Largest value</span>
+                  <code>=COUNT(A2:A20)</code><span>Count numeric cells</span>
+                  <code>=SUM(A1:A5,C1:C5)</code><span>Use more than one range</span>
+                </div>
+              </section>
+
+              <section class="info-section">
+                <h3>Home dashboard formulas</h3>
+                <div class="formula-reference">
+                  <code>=TOTALINCOME()</code><span>Total income for the selected salary cycle</span>
+                  <code>=EXPENSES()</code><span>Total expenses</span>
+                  <code>=SAVED()</code><span>Total saved</span>
+                  <code>=AVAILABLE()</code><span>Available balance</span>
+                </div>
+              </section>
+
+              <section class="info-section">
+                <h3>Formatting and table tools</h3>
+                <ul class="spreadsheet-info-list">
+                  <li><strong>RM format:</strong> select a numeric cell and tap RM format to display values such as <strong>RM 300.00</strong>. The number remains usable in calculations.</li>
+                  <li><strong>Merged cells:</strong> select the first cell, tap Merge cells, then tap the opposite corner. Select a merged cell and tap Unmerge to separate it.</li>
+                  <li><strong>Cell size:</strong> use Cell size on iPhone. On a computer, you can also drag a column or row edge.</li>
+                  <li><strong>Formula editing:</strong> select a calculated cell to view or change its original formula in the formula bar.</li>
+                  <li><strong>Dashboard links:</strong> linked Home values update automatically when the selected budget data changes.</li>
+                </ul>
+              </section>
+            </div>
+
+            <div class="spreadsheet-info-footer">
+              <button id="sheetInfoDoneButton" class="primary-button" type="button">Done</button>
+            </div>
+          </div>
+        </dialog>
+      </section>
+
+      <section id="settingsView" class="view" aria-label="Settings">
+        <div class="page-heading">
+          <div>
+            <p class="section-kicker">SETTINGS</p>
+            <h2>Monthly setup</h2>
+          </div>
+        </div>
+
+
+        <form id="monthSetupForm" class="panel form-panel">
+          <p class="form-help">These values apply to the <strong id="setupMonthName">selected month</strong> budget.</p>
+
+          <label class="field date-field">
+            <span>Salary received / cycle start date</span>
+            <input id="cycleStartDate" type="date" required>
+            <small class="field-help">
+              Automatic date is <strong id="automaticSalaryDate">the 27th</strong>. If it falls on Saturday or Sunday,
+              the app moves it to the previous Friday. For a public holiday, select the actual earlier salary date manually.
+            </small>
+          </label>
+
+          <div class="cycle-strip setup-cycle-strip" aria-live="polite">
+            <div>
+              <span>Salary cycle</span>
+              <strong id="setupCyclePreview">Loading cycle...</strong>
+              <small id="cycleStartMode" class="cycle-mode-note"></small>
+            </div>
+            <small id="cycleBudgetLabel">Budget month</small>
+          </div>
+
+          <button id="automaticCycleButton" class="secondary-button" type="button">Use automatic salary date</button>
+
+          <label class="field">
+            <span>Monthly salary</span>
+            <div class="amount-input-wrap small">
+              <span>RM</span>
+              <input id="monthlySalary" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+            </div>
+          </label>
+          <label class="field">
+            <span>Saving target</span>
+            <div class="amount-input-wrap small">
+              <span>RM</span>
+              <input id="monthlySavingTarget" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
+            </div>
+          </label>
+          <button class="primary-button" type="submit">Save monthly setup</button>
+        </form>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">CUSTOMISE</p>
+              <h2>Categories</h2>
+            </div>
+          </div>
+          <form id="categoryForm" class="inline-form">
+            <select id="newCategoryType">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+              <option value="saving">Saving</option>
+            </select>
+            <input id="newCategoryName" type="text" maxlength="40" placeholder="New category" required>
+            <button class="primary-button compact-button" type="submit">Add</button>
+          </form>
+          <div id="categoryList" class="category-list"></div>
+        </section>
+
+        <section class="panel danger-zone">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">TESTING TOOLS</p>
+              <h2>Local data</h2>
+            </div>
+          </div>
+          <p class="form-help">The records are stored only in this browser. Export an encrypted backup before clearing Safari data or deleting the Home Screen app. The backup password is never stored by Pocket Budget.</p>
+
+          <div class="backup-status-grid" aria-label="Weekly backup reminder status">
+            <div class="backup-status-item">
+              <span>Weekly reminder</span>
+              <strong>Every Monday</strong>
+            </div>
+            <div class="backup-status-item">
+              <span>Last encrypted backup</span>
+              <strong id="lastBackupStatus">No backup recorded yet</strong>
+            </div>
+            <div class="backup-status-item">
+              <span>Next reminder</span>
+              <strong id="nextBackupReminderStatus">Checking...</strong>
+            </div>
+          </div>
+
+          <div class="button-stack">
+            <button id="sampleDataButton" class="secondary-button" type="button">Create sample data</button>
+            <button id="exportButton" class="secondary-button" type="button">Export encrypted backup</button>
+            <label class="secondary-button file-button">
+              Import encrypted backup
+              <input id="importFile" type="file" accept=".pbe,application/json,.json">
+            </label>
+            <button id="resetButton" class="danger-button" type="button">Delete all test data</button>
+          </div>
+          <p class="form-help backup-legacy-note">Older unencrypted Pocket Budget JSON files can still be imported. New exports are always encrypted.</p>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="weeklyBackupDialog" class="backup-reminder-dialog" aria-labelledby="weeklyBackupTitle" aria-describedby="weeklyBackupMessage">
+      <div class="backup-reminder-card">
+        <div class="backup-reminder-heading">
+          <div>
+            <p class="section-kicker">WEEKLY BACKUP</p>
+            <h2 id="weeklyBackupTitle">Backup reminder</h2>
+          </div>
+          <button id="weeklyBackupCloseButton" class="dialog-close-button" type="button" aria-label="Remind me tomorrow">&times;</button>
+        </div>
+
+        <div class="backup-reminder-content">
+          <div class="backup-reminder-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v12"></path>
+              <path d="m7 10 5 5 5-5"></path>
+              <path d="M5 20h14"></path>
+            </svg>
+          </div>
+
+          <p id="weeklyBackupMessage">A weekly encrypted backup is due.</p>
+
+          <div class="backup-reminder-details">
+            <div>
+              <span>Backup week</span>
+              <strong id="weeklyBackupWeek">-</strong>
+            </div>
+            <div>
+              <span>Last encrypted backup</span>
+              <strong id="weeklyBackupLast">No backup recorded yet</strong>
+            </div>
+          </div>
+
+          <p class="backup-reminder-note">The reminder appears on the first app opening on or after Monday. You will create a password before the encrypted backup is saved. If you postpone it, the reminder returns the next day.</p>
+        </div>
+
+        <div class="backup-reminder-footer">
+          <button id="weeklyBackupLaterButton" class="secondary-button" type="button">Remind me tomorrow</button>
+          <button id="weeklyBackupNowButton" class="primary-button" type="button">Create encrypted backup</button>
+        </div>
+      </div>
+    </dialog>
+
+
+    <dialog id="backupSecurityDialog" class="backup-security-dialog" aria-labelledby="backupSecurityTitle" aria-describedby="backupSecurityMessage">
+      <form id="backupSecurityForm" class="backup-security-card" novalidate>
+        <div class="backup-security-heading">
+          <div>
+            <p class="section-kicker">ENCRYPTED BACKUP</p>
+            <h2 id="backupSecurityTitle">Protect backup</h2>
+          </div>
+          <button id="backupSecurityCloseButton" class="dialog-close-button" type="button" aria-label="Cancel encrypted backup">&times;</button>
+        </div>
+
+        <div class="backup-security-content">
+          <p id="backupSecurityMessage">Create a password for this backup file.</p>
+
+          <div id="backupSecurityFileInfo" class="backup-security-file" hidden>
+            <span>Selected file</span>
+            <strong id="backupSecurityFileName">-</strong>
+          </div>
+
+          <div id="backupPasswordFields" class="backup-password-fields">
+            <label class="field">
+              <span>Backup password</span>
+              <input id="backupPassword" type="password" maxlength="256" autocomplete="new-password" required>
+            </label>
+
+            <label id="backupPasswordConfirmField" class="field">
+              <span>Confirm password</span>
+              <input id="backupPasswordConfirm" type="password" maxlength="256" autocomplete="new-password">
+            </label>
+
+            <label class="backup-show-password">
+              <input id="backupShowPassword" type="checkbox">
+              <span>Show password</span>
+            </label>
+
+            <div id="backupPasswordGuidance" class="backup-password-guidance">
+              Use at least 10 characters. A longer passphrase is easier to remember and harder to guess. A forgotten password cannot be recovered.
+            </div>
+          </div>
+
+          <div id="backupReadyPanel" class="backup-ready-panel" hidden>
+            <div class="backup-ready-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="10" width="14" height="10" rx="2"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                <path d="M12 14v2"></path>
+              </svg>
+            </div>
+            <div>
+              <strong>Encrypted backup ready</strong>
+              <span id="backupReadyDescription">Tap Save encrypted backup and choose a safe location.</span>
+            </div>
+          </div>
+
+          <p id="backupSecurityError" class="backup-security-error" role="alert" hidden></p>
+        </div>
+
+        <div class="backup-security-footer">
+          <button id="backupSecurityCancelButton" class="secondary-button" type="button">Cancel</button>
+          <button id="backupSecurityActionButton" class="primary-button" type="submit">Encrypt backup</button>
+        </div>
+      </form>
+    </dialog>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-button active" type="button" data-view="home" aria-label="Home" aria-current="page">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 11.5 12 4l9 7.5"></path>
+            <path d="M5.5 10.5V20h13v-9.5"></path>
+            <path d="M9.5 20v-6h5v6"></path>
+          </svg>
+        </span>
+        <span>Home</span>
+      </button>
+      <button class="nav-button" type="button" data-view="transactions" aria-label="Records">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 3h12a2 2 0 0 1 2 2v16H4V5a2 2 0 0 1 2-2Z"></path>
+            <path d="M8 8h8"></path>
+            <path d="M8 12h8"></path>
+            <path d="M8 16h5"></path>
+          </svg>
+        </span>
+        <span>Records</span>
+      </button>
+      <button class="nav-button add-nav-button" type="button" data-view="add" aria-label="Add transaction">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </span>
+        <span>Add</span>
+      </button>
+      <button class="nav-button" type="button" data-view="sheet" aria-label="Custom sheet">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+            <path d="M4 10h16"></path>
+            <path d="M4 16h16"></path>
+            <path d="M10 4v16"></path>
+            <path d="M16 4v16"></path>
+          </svg>
+        </span>
+        <span>Sheet</span>
+      </button>
+      <button class="nav-button" type="button" data-view="settings" aria-label="Setup">
+        <span class="nav-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.55V21h-4v-.08A1.7 1.7 0 0 0 8.97 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.08A1.7 1.7 0 0 0 4.6 8.97a1.7 1.7 0 0 0-.34-1.88l-.06-.06L7.03 4.2l.06.06A1.7 1.7 0 0 0 8.97 4.6 1.7 1.7 0 0 0 10 3.05V3h4v.08a1.7 1.7 0 0 0 1.03 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.55 1.03H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"></path>
+          </svg>
+        </span>
+        <span>Setup</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
