@@ -24,15 +24,15 @@
     })();
   </script>
 
-  <link rel="manifest" href="manifest.webmanifest?v=26">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=26">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=26">
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="manifest" href="manifest.webmanifest?v=27">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=27">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=27">
+  <link rel="stylesheet" href="styles.css?v=27">
 
-  <script src="cycle.js?v=26" defer></script>
-  <script src="db.js?v=26" defer></script>
-  <script src="backup-crypto.js?v=26" defer></script>
-  <script src="app.js?v=26" defer></script>
+  <script src="cycle.js?v=27" defer></script>
+  <script src="db.js?v=27" defer></script>
+  <script src="backup-crypto.js?v=27" defer></script>
+  <script src="app.js?v=27" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -512,11 +512,11 @@
             <button id="exportButton" class="secondary-button" type="button">Export encrypted backup</button>
             <label class="secondary-button file-button">
               Import encrypted backup
-              <input id="importFile" type="file" accept=".pbe,application/json,.json">
+              <input id="importFile" type="file" >
             </label>
             <button id="resetButton" class="danger-button" type="button">Delete all test data</button>
           </div>
-          <p class="form-help backup-legacy-note">Older unencrypted Pocket Budget JSON files can still be imported. New exports are always encrypted.</p>
+          <p class="form-help backup-legacy-note">On iPhone, the file picker is intentionally unfiltered so encrypted .pbe files remain selectable. Pocket Budget validates the file after you choose it. Older unencrypted Pocket Budget JSON files can still be imported. New exports are always encrypted.</p>
         </section>
       </section>
     </main>

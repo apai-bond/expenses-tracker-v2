@@ -1,4 +1,4 @@
-# Pocket Budget - Version 26 Encrypted Weekly Backup
+# Pocket Budget - Version 27 Encrypted Backup + iPhone Import Fix
 
 Pocket Budget is a mobile-first personal expense tracker that can run in Safari on an iPhone. Records are stored locally in IndexedDB on the device.
 
@@ -90,10 +90,10 @@ The interface can be tested through this local-network HTTP address, but encrypt
 
 Upload all project files to the repository root, including the new `cycle.js` file. GitHub Pages should deploy from the `main` branch and `/ (root)` folder.
 
-After deployment, close and reopen the Home Screen app. Version 26 uses this cache name:
+After deployment, close and reopen the Home Screen app. Version 27 uses this cache name:
 
 ```text
-pocket-budget-v26-encrypted-backup
+pocket-budget-v27-ios-backup-import
 ```
 
 ## Data backup
@@ -104,7 +104,7 @@ Backup files use the `.pbe` extension. The records and spreadsheet data are encr
 
 Importing an encrypted backup requires its password and replaces the current local data after confirmation. Older unencrypted Pocket Budget JSON backups can still be imported for compatibility, but all new exports are encrypted.
 
-Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 26.
+Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 27.
 
 ## Python learning area
 
@@ -183,3 +183,12 @@ Pocket Budget checks the encrypted-backup status whenever the app starts, return
 - Cancelling the save step leaves the reminder active.
 
 The reminder status is stored locally in the browser. The exported `.pbe` file is encrypted, but the live IndexedDB database remains local and unencrypted.
+
+
+## Version 27 - iPhone encrypted backup import
+
+The iPhone file picker is intentionally left unfiltered so `.pbe` backups can be selected. Pocket Budget validates the file contents after selection. Version 26 `.pbe` backups remain compatible.
+
+## Version 27 iPhone backup sharing correction
+
+Encrypted backup sharing now sends only the `.pbe` file to the iPhone share sheet. No descriptive text payload is included, preventing iOS Files from creating an additional `text` sidecar file beside the backup. The encrypted backup format and Version 27 import compatibility are unchanged.

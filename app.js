@@ -964,6 +964,14 @@ async function prepareBackupImport(event) {
   input.value = "";
   if (!file) return;
 
+  // Do not use the HTML accept filter on iPhone. Safari can gray out
+  // custom .pbe files. Validate the selected file here instead.
+  const MAX_BACKUP_FILE_BYTES = 50 * 1024 * 1024;
+  if (file.size > MAX_BACKUP_FILE_BYTES) {
+    showToast("Import failed: the selected backup file is larger than 50 MB.");
+    return;
+  }
+
   try {
     const text = await file.text();
     let parsed;
@@ -1299,10 +1307,11 @@ async function deliverBackupFile(blob, fileName) {
 
   if (canShareFile) {
     try {
+      // Share only the encrypted backup file.
+      // On iPhone, including a separate `text` field can cause Files to
+      // create an unwanted sidecar text document beside the .pbe backup.
       await navigator.share({
-        files: [file],
-        title: "Encrypted Pocket Budget backup",
-        text: "Save this encrypted Pocket Budget backup in Files, iCloud Drive, Google Drive, or another safe location."
+        files: [file]
       });
       return true;
     } catch (error) {

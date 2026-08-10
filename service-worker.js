@@ -1,22 +1,22 @@
 "use strict";
 
-const CACHE_NAME = "pocket-budget-v26-encrypted-backup";
+const CACHE_NAME = "pocket-budget-v27-ios-backup-import-r2";
 const LOCAL_ASSETS = [
   "./",
   "index.html",
-  "styles.css?v=26",
-  "cycle.js?v=26",
-  "db.js?v=26",
-  "backup-crypto.js?v=26",
-  "app.js?v=26",
-  "calculations.py?v=26",
-  "manifest.webmanifest?v=26",
-  "icons/icon-192.png?v=26",
-  "icons/icon-512.png?v=26",
-  "icons/icon-1024.png?v=26",
-  "icons/apple-touch-icon.png?v=26",
-  "icons/favicon.svg?v=26",
-  "icons/app-icon.svg?v=26"
+  "styles.css?v=27",
+  "cycle.js?v=27",
+  "db.js?v=27",
+  "backup-crypto.js?v=27",
+  "app.js?v=27",
+  "calculations.py?v=27",
+  "manifest.webmanifest?v=27",
+  "icons/icon-192.png?v=27",
+  "icons/icon-512.png?v=27",
+  "icons/icon-1024.png?v=27",
+  "icons/apple-touch-icon.png?v=27",
+  "icons/favicon.svg?v=27",
+  "icons/app-icon.svg?v=27"
 ];
 
 self.addEventListener("install", (event) => {
