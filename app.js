@@ -57,7 +57,9 @@ const CHART_COLORS = [
   "#b57a2b",
   "#8b5f9e",
   "#b64545",
-  "#4f7f45"
+  "#4f7f45",
+  "#4f6f8f",
+  "#8a6d3b"
 ];
 
 document.addEventListener("DOMContentLoaded", initializeApp);
@@ -681,9 +683,6 @@ async function renderDashboard() {
   document.getElementById("savingTargetText").textContent = `${formatMoney(summary.savings)} of ${formatMoney(summary.savingsTarget)}`;
   document.getElementById("savingPercent").textContent = `${Math.round(summary.savingsProgress || 0)}%`;
   document.getElementById("savingProgress").style.width = `${Math.min(Math.max(summary.savingsProgress || 0, 0), 100)}%`;
-  document.getElementById("savingsRate").textContent = `${Number(summary.savingsRate || 0).toFixed(1)}%`;
-  document.getElementById("topCategory").textContent = summary.topCategory || "-";
-  document.getElementById("averageDaily").textContent = formatMoney(summary.averageDaily || 0);
   document.getElementById("chartTotal").textContent = compactMoney(summary.expenses);
 
   const needsSetup = Number(state.monthRecord.salary || 0) === 0 && state.transactions.length === 0;
@@ -797,11 +796,19 @@ function transactionRow(record, includeActions) {
 }
 
 function groupChartData(categoryTotals) {
-  if (categoryTotals.length <= 6) return categoryTotals;
+  // Keep the seven largest categories visible and combine every
+  // remaining category into one Others slice.
+  if (categoryTotals.length <= 7) return categoryTotals;
 
-  const topFive = categoryTotals.slice(0, 5);
-  const otherAmount = categoryTotals.slice(5).reduce((total, item) => total + numberValue(item.amount), 0);
-  return [...topFive, { category: "Others", amount: roundMoney(otherAmount) }];
+  const topSeven = categoryTotals.slice(0, 7);
+  const otherAmount = categoryTotals
+    .slice(7)
+    .reduce((total, item) => total + numberValue(item.amount), 0);
+
+  return [
+    ...topSeven,
+    { category: "Others", amount: roundMoney(otherAmount) }
+  ];
 }
 
 function drawDoughnut(canvas, data) {
@@ -864,7 +871,8 @@ function renderChartLegend(data, total) {
 
 function renderCategoryBars(categoryTotals, total) {
   const container = document.getElementById("categoryBars");
-  const items = categoryTotals.slice(0, 6);
+  // Show every category that has expense activity in this salary cycle.
+  const items = categoryTotals;
 
   if (!items.length) {
     container.innerHTML = emptyState("No expense data for this salary cycle.");

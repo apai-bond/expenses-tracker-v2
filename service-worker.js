@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "pocket-budget-v27-ios-backup-import-r2";
+const CACHE_NAME = "pocket-budget-v27-ios-backup-import-r3";
 const LOCAL_ASSETS = [
   "./",
   "index.html",
