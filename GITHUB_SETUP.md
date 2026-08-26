@@ -1,8 +1,8 @@
-# Publish Pocket Budget Version 27 with GitHub Pages
+# Publish Pocket Budget Version 28 with GitHub Pages
 
 1. Extract the ZIP file on your Windows computer.
 2. Open your existing `pocket-budget` GitHub repository.
-3. Upload all replacement files to the repository root. Upload the complete Version 27 project or the listed replacement files from the update package.
+3. Upload all replacement files to the repository root. Upload the complete Version 28 project or the listed replacement files from the update package.
 4. Confirm these files are directly beside `index.html`:
 
 ```text
@@ -22,10 +22,10 @@ manifest.webmanifest
 8. Open the Pages URL and refresh it once.
 9. For an installed iPhone Home Screen app, close the app completely and reopen it.
 
-Version 27 uses this service-worker cache:
+Version 28 uses this service-worker cache:
 
 ```text
-pocket-budget-v27-ios-backup-import
+pocket-budget-v28-two-week-backup
 ```
 
 If an old version remains in a desktop browser, open:

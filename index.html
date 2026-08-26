@@ -24,15 +24,15 @@
     })();
   </script>
 
-  <link rel="manifest" href="manifest.webmanifest?v=27">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=27">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=27">
-  <link rel="stylesheet" href="styles.css?v=27">
+  <link rel="manifest" href="manifest.webmanifest?v=28">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=28">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=28">
+  <link rel="stylesheet" href="styles.css?v=28">
 
-  <script src="cycle.js?v=27" defer></script>
-  <script src="db.js?v=27" defer></script>
-  <script src="backup-crypto.js?v=27" defer></script>
-  <script src="app.js?v=27" defer></script>
+  <script src="cycle.js?v=28" defer></script>
+  <script src="db.js?v=28" defer></script>
+  <script src="backup-crypto.js?v=28" defer></script>
+  <script src="app.js?v=28" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -477,10 +477,10 @@
           </div>
           <p class="form-help">The records are stored only in this browser. Export an encrypted backup before clearing Safari data or deleting the Home Screen app. The backup password is never stored by Pocket Budget.</p>
 
-          <div class="backup-status-grid" aria-label="Weekly backup reminder status">
+          <div class="backup-status-grid" aria-label="Two-week backup reminder status">
             <div class="backup-status-item">
-              <span>Weekly reminder</span>
-              <strong>Every Monday</strong>
+              <span>Backup reminder</span>
+              <strong>Every 2 weeks</strong>
             </div>
             <div class="backup-status-item">
               <span>Last encrypted backup</span>
@@ -510,7 +510,7 @@
       <div class="backup-reminder-card">
         <div class="backup-reminder-heading">
           <div>
-            <p class="section-kicker">WEEKLY BACKUP</p>
+            <p class="section-kicker">2-WEEK BACKUP</p>
             <h2 id="weeklyBackupTitle">Backup reminder</h2>
           </div>
           <button id="weeklyBackupCloseButton" class="dialog-close-button" type="button" aria-label="Remind me tomorrow">&times;</button>
@@ -525,11 +525,11 @@
             </svg>
           </div>
 
-          <p id="weeklyBackupMessage">A weekly encrypted backup is due.</p>
+          <p id="weeklyBackupMessage">A 2-week encrypted backup is due.</p>
 
           <div class="backup-reminder-details">
             <div>
-              <span>Backup week</span>
+              <span>Reminder date</span>
               <strong id="weeklyBackupWeek">-</strong>
             </div>
             <div>
@@ -538,7 +538,7 @@
             </div>
           </div>
 
-          <p class="backup-reminder-note">The reminder appears on the first app opening on or after Monday. You will create a password before the encrypted backup is saved. If you postpone it, the reminder returns the next day.</p>
+          <p class="backup-reminder-note">The reminder is scheduled every second Monday. If the app is not opened that Monday, it appears the next time you open or resume the app. You will create a password before the encrypted backup is saved. If you postpone it, the reminder returns the next day.</p>
         </div>
 
         <div class="backup-reminder-footer">

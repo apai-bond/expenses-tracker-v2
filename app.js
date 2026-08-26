@@ -40,6 +40,7 @@ const SHEET_SIZE_LIMITS = {
 };
 
 const BACKUP_MIN_PASSWORD_LENGTH = 10;
+const BACKUP_INTERVAL_DAYS = 14;
 const THEME_STORAGE_KEY = "pocket-budget-theme";
 const BACKUP_STORAGE_KEYS = {
   lastBackupAt: "pocket-budget-last-encrypted-backup-at",
@@ -1355,11 +1356,15 @@ function checkWeeklyBackupReminder(now = new Date()) {
   const securityDialog = document.getElementById("backupSecurityDialog");
   if (!dialog || dialog.open || securityDialog?.open) return;
 
-  const weekStart = getBackupWeekStart(now);
-  document.getElementById("weeklyBackupWeek").textContent = formatDate(weekStart);
+  const completedWeek = safeStorageGet(BACKUP_STORAGE_KEYS.completedWeek);
+  const dueMonday = completedWeek
+    ? getNextBackupMonday(completedWeek)
+    : getBackupWeekStart(now);
+
+  document.getElementById("weeklyBackupWeek").textContent = formatDate(dueMonday);
   document.getElementById("weeklyBackupLast").textContent = getLastBackupDisplay();
   document.getElementById("weeklyBackupMessage").textContent =
-    `A backup has not been created for the week beginning ${formatDate(weekStart)}. ` +
+    `Your 2-week backup reminder is due. The scheduled reminder date is ${formatDate(dueMonday)}. ` +
     "Create an encrypted backup now and save it to On My iPhone, iCloud Drive, Google Drive, Dropbox, or another safe location.";
 
   if (typeof dialog.showModal === "function") {
@@ -1396,13 +1401,15 @@ function markWeeklyBackupCompleted(now = new Date()) {
 }
 
 function isWeeklyBackupDue(now = new Date()) {
-  const completedWeek = safeStorageGet(BACKUP_STORAGE_KEYS.completedWeek);
-  const currentWeek = getBackupWeekStart(now);
-  if (completedWeek === currentWeek) return false;
-
   const snoozeUntil = safeStorageGet(BACKUP_STORAGE_KEYS.snoozeUntil);
   if (snoozeUntil && getLocalDate(now) < snoozeUntil) return false;
-  return true;
+
+  const completedWeek = safeStorageGet(BACKUP_STORAGE_KEYS.completedWeek);
+  if (!completedWeek) return true;
+
+  const nextDueDate = localDateFromString(getNextBackupMonday(completedWeek));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return today >= nextDueDate;
 }
 
 function getBackupWeekStart(value = new Date()) {
@@ -1417,7 +1424,7 @@ function getBackupWeekStart(value = new Date()) {
 
 function getNextBackupMonday(value = new Date()) {
   const monday = localDateFromString(getBackupWeekStart(value));
-  monday.setDate(monday.getDate() + 7);
+  monday.setDate(monday.getDate() + BACKUP_INTERVAL_DAYS);
   return getLocalDate(monday);
 }
 
@@ -1439,17 +1446,22 @@ function updateBackupReminderStatus(now = new Date()) {
     return;
   }
 
-  const currentWeek = getBackupWeekStart(now);
   const completedWeek = safeStorageGet(BACKUP_STORAGE_KEYS.completedWeek);
   const snoozeUntil = safeStorageGet(BACKUP_STORAGE_KEYS.snoozeUntil);
+  const today = getLocalDate(now);
 
-  if (completedWeek === currentWeek) {
-    nextElement.textContent = formatDate(getNextBackupMonday(now));
-  } else if (snoozeUntil && getLocalDate(now) < snoozeUntil) {
+  if (snoozeUntil && today < snoozeUntil) {
     nextElement.textContent = formatDate(snoozeUntil);
-  } else {
-    nextElement.textContent = "Due now";
+    return;
   }
+
+  if (!completedWeek) {
+    nextElement.textContent = "Due now";
+    return;
+  }
+
+  const nextDue = getNextBackupMonday(completedWeek);
+  nextElement.textContent = today >= nextDue ? "Due now" : formatDate(nextDue);
 }
 
 function localDateFromString(value) {

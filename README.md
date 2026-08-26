@@ -1,4 +1,4 @@
-# Pocket Budget - Version 27 Encrypted Backup + iPhone Import Fix
+# Pocket Budget - Version 28 Two-Week Encrypted Backup Reminder
 
 Pocket Budget is a mobile-first personal expense tracker that can run in Safari on an iPhone. Records are stored locally in IndexedDB on the device.
 
@@ -15,7 +15,7 @@ Pocket Budget is a mobile-first personal expense tracker that can run in Safari 
 - Summary cards and expense charts
 - Local IndexedDB database
 - Password-encrypted backup and restore
-- Monday weekly backup reminder that remains due until an encrypted backup is saved
+- encrypted backup reminder every 2 weeks (every second Monday) that remains due until a backup is saved
 - Light and Dark appearance
 - Progressive Web App files
 - Python calculation logic through Pyodide
@@ -90,10 +90,10 @@ The interface can be tested through this local-network HTTP address, but encrypt
 
 Upload all project files to the repository root, including the new `cycle.js` file. GitHub Pages should deploy from the `main` branch and `/ (root)` folder.
 
-After deployment, close and reopen the Home Screen app. Version 27 uses this cache name:
+After deployment, close and reopen the Home Screen app. Version 28 uses this cache name:
 
 ```text
-pocket-budget-v27-ios-backup-import
+pocket-budget-v28-two-week-backup
 ```
 
 ## Data backup
@@ -104,7 +104,7 @@ Backup files use the `.pbe` extension. The records and spreadsheet data are encr
 
 Importing an encrypted backup requires its password and replaces the current local data after confirmation. Older unencrypted Pocket Budget JSON backups can still be imported for compatibility, but all new exports are encrypted.
 
-Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 27.
+Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 28.
 
 ## Python learning area
 
@@ -192,3 +192,15 @@ The iPhone file picker is intentionally left unfiltered so `.pbe` backups can be
 ## Version 27 iPhone backup sharing correction
 
 Encrypted backup sharing now sends only the `.pbe` file to the iPhone share sheet. No descriptive text payload is included, preventing iOS Files from creating an additional `text` sidecar file beside the backup. The encrypted backup format and Version 27 import compatibility are unchanged.
+
+## V27 dashboard report update
+
+- Removed Savings rate, Top category, and Daily average mini cards from Home.
+- Expense doughnut chart displays the top 7 expense categories and combines all remaining categories into `Others`.
+- Spending breakdown displays every expense category that has spending in the selected salary cycle.
+
+
+
+## Version 28 - Two-week backup reminder
+
+The encrypted-backup popup is now scheduled every 14 days (every second Monday). If Pocket Budget is not opened on the scheduled Monday, the reminder remains due and appears the next time the app is opened or resumed. Creating a backup restarts the 14-day cycle from the Monday of that week.
