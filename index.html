@@ -255,8 +255,19 @@
               <span class="sheet-tool-label">Redo</span>
             </button>
             <button id="sheetFocusButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Enter spreadsheet focus mode">
-              <svg class="sheet-focus-enter-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5"></path><path d="m3 3 6 6"></path><path d="M16 3h5v5"></path><path d="m21 3-6 6"></path><path d="M8 21H3v-5"></path><path d="m3 21 6-6"></path><path d="M16 21h5v-5"></path><path d="m21 21-6-6"></path></svg>
-              <svg class="sheet-focus-exit-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9H4V4"></path><path d="M4 9 9 4"></path><path d="M15 9h5V4"></path><path d="m20 9-5-5"></path><path d="M9 15H4v5"></path><path d="m4 15 5 5"></path><path d="M15 15h5v5"></path><path d="m20 15-5 5"></path></svg>
+              <svg class="sheet-focus-enter-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <path d="M8 9H6v2"></path><path d="M16 9h2v2"></path>
+                <path d="M8 15H6v-2"></path><path d="M16 15h2v-2"></path>
+                <circle cx="12" cy="12" r="1.7"></circle>
+              </svg>
+              <svg class="sheet-focus-exit-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <path d="M9 10H6V7"></path><path d="m6 10 3-3"></path>
+                <path d="M15 10h3V7"></path><path d="m18 10-3-3"></path>
+                <path d="M9 14H6v3"></path><path d="m6 14 3 3"></path>
+                <path d="M15 14h3v3"></path><path d="m18 14-3 3"></path>
+              </svg>
               <span class="sheet-tool-label">Focus</span>
             </button>
             <button id="sheetEditButton" class="sheet-tool-button primary-tool" type="button" title="Edit selected cell">
@@ -288,7 +299,11 @@
               <span class="sheet-tool-label">Merge</span>
             </button>
             <button id="sheetSizeButton" class="sheet-tool-button" type="button" aria-expanded="false" aria-controls="sheetSizeControls" title="Adjust row and column size">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"></path><path d="m4 4 5 5"></path><path d="M20 8V4h-4"></path><path d="m20 4-5 5"></path><path d="M4 16v4h4"></path><path d="m4 20 5-5"></path><path d="M20 16v4h-4"></path><path d="m20 20-5-5"></path></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="7" y="7" width="11" height="10" rx="1.5"></rect>
+                <path d="M7 4h11"></path><path d="m9 2-2 2 2 2"></path><path d="m16 2 2 2-2 2"></path>
+                <path d="M4 7v10"></path><path d="m2 9 2-2 2 2"></path><path d="m2 15 2 2 2-2"></path>
+              </svg>
               <span class="sheet-tool-label">Cell size</span>
             </button>
             <button id="sheetAddRowButton" class="sheet-tool-button" type="button" title="Add row">

@@ -3295,30 +3295,37 @@ body.sheet-focus-mode .offline-sheet-workspace {
   }
 
   body.sheet-focus-mode .offline-sheet-toolbar {
-    min-height: 44px;
-    padding: 4px max(6px, env(safe-area-inset-left)) 4px max(6px, env(safe-area-inset-right));
+    min-height: 52px;
+    padding: 3px max(6px, env(safe-area-inset-left)) 3px max(6px, env(safe-area-inset-right));
     gap: 3px;
   }
 
   body.sheet-focus-mode .sheet-tool-button {
-    min-width: 42px;
-    min-height: 38px;
-    padding: 4px 6px;
+    min-width: 58px;
+    min-height: 46px;
+    padding: 3px 5px;
+    gap: 2px;
     border-radius: 9px;
   }
 
   body.sheet-focus-mode .sheet-tool-button svg {
-    width: 19px;
-    height: 19px;
+    width: 18px;
+    height: 18px;
   }
 
   body.sheet-focus-mode .sheet-tool-text-icon {
-    height: 19px;
-    font-size: 0.7rem;
+    height: 18px;
+    font-size: 0.67rem;
   }
 
   body.sheet-focus-mode .sheet-tool-label {
-    display: none;
+    display: block;
+    max-width: 74px;
+    font-size: 0.52rem;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   body.sheet-focus-mode .offline-formula-bar {

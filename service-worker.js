@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "pocket-budget-v31-advanced-offline-sheet";
+const CACHE_NAME = "pocket-budget-v31-advanced-offline-sheet-r2";
 const LOCAL_ASSETS = [
   "./",
   "index.html",
