@@ -225,7 +225,7 @@ const BudgetDB = (() => {
   function defaultCustomSheet() {
     return {
       id: "main",
-      name: "Quick table",
+      name: "My offline sheet",
       rows: 20,
       cols: 6,
       headerRow: true,

@@ -24,15 +24,15 @@
     })();
   </script>
 
-  <link rel="manifest" href="manifest.webmanifest?v=28">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=28">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=28">
-  <link rel="stylesheet" href="styles.css?v=28">
+  <link rel="manifest" href="manifest.webmanifest?v=29">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=29">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=29">
+  <link rel="stylesheet" href="styles.css?v=29">
 
-  <script src="cycle.js?v=28" defer></script>
-  <script src="db.js?v=28" defer></script>
-  <script src="backup-crypto.js?v=28" defer></script>
-  <script src="app.js?v=28" defer></script>
+  <script src="cycle.js?v=29" defer></script>
+  <script src="db.js?v=29" defer></script>
+  <script src="backup-crypto.js?v=29" defer></script>
+  <script src="app.js?v=29" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -213,139 +213,231 @@
         </form>
       </section>
 
-
-      <section id="sheetView" class="view" aria-label="Custom sheet">
+      <section id="sheetView" class="view" aria-label="Offline spreadsheet">
         <div class="page-heading sheet-heading">
           <div>
-            <p class="section-kicker">FREE RECORD</p>
-            <h2>Custom sheet</h2>
-            <p class="page-context">Use this empty spreadsheet for any record that is not directly related to expenses.</p>
+            <p class="section-kicker">LOCAL WORKBOOK</p>
+            <h2>Offline spreadsheet</h2>
+            <p class="page-context">A JavaScript spreadsheet stored in IndexedDB. It does not use Google Sheets, Excel, or OneDrive.</p>
           </div>
         </div>
 
-        <section class="panel sheet-panel">
-          <div class="sheet-info-launch">
-            <button id="sheetInfoButton" class="secondary-button sheet-info-button" type="button" aria-haspopup="dialog" aria-controls="spreadsheetInfoDialog">
-              Spreadsheet Information
+        <section id="offlineSheetWorkspace" class="panel sheet-panel offline-sheet-workspace">
+          <header class="offline-sheet-header">
+            <div class="offline-sheet-title-block">
+              <div class="offline-sheet-title-row">
+                <div>
+                  <p class="section-kicker">JAVASCRIPT SHEET</p>
+                  <h2 id="customSheetTitle">My sheet</h2>
+                </div>
+                <span id="sheetSaveState" class="sheet-save-state" data-state="saved">Saved locally</span>
+              </div>
+              <p>Tap a cell to select it. Tap <strong>Edit</strong> or the formula bar to enter text, numbers, or formulas.</p>
+            </div>
+
+            <div class="offline-sheet-header-actions">
+              <button id="sheetInfoButton" class="sheet-header-button" type="button" aria-haspopup="dialog" aria-controls="spreadsheetInfoDialog">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path>
+                </svg>
+                <span>Info</span>
+              </button>
+              <button id="sheetFocusButton" class="sheet-header-button" type="button" aria-pressed="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 3H3v5"></path><path d="m3 3 6 6"></path><path d="M16 3h5v5"></path><path d="m21 3-6 6"></path><path d="M8 21H3v-5"></path><path d="m3 21 6-6"></path><path d="M16 21h5v-5"></path><path d="m21 21-6-6"></path>
+                </svg>
+                <span class="sheet-tool-label">Focus</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="offline-sheet-toolbar" role="toolbar" aria-label="Spreadsheet tools">
+            <button id="sheetUndoButton" class="sheet-tool-button" type="button" disabled title="Undo">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7 4 12l5 5"></path><path d="M4 12h9a7 7 0 0 1 7 7"></path></svg>
+              <span class="sheet-tool-label">Undo</span>
+            </button>
+            <button id="sheetRedoButton" class="sheet-tool-button" type="button" disabled title="Redo">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 7 5 5-5 5"></path><path d="M20 12h-9a7 7 0 0 0-7 7"></path></svg>
+              <span class="sheet-tool-label">Redo</span>
+            </button>
+            <button id="sheetEditButton" class="sheet-tool-button primary-tool" type="button" title="Edit selected cell">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>
+              <span class="sheet-tool-label">Edit</span>
+            </button>
+            <button id="sheetCopyButton" class="sheet-tool-button" type="button" title="Copy selected cell">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="sheet-tool-label">Copy</span>
+            </button>
+            <button id="sheetPasteButton" class="sheet-tool-button" type="button" title="Paste into selected cell">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="18" rx="2"></rect><path d="M9 4V2h6v2"></path><path d="M9 12h6"></path><path d="M12 9v6"></path></svg>
+              <span class="sheet-tool-label">Paste</span>
+            </button>
+            <button id="sheetDeleteButton" class="sheet-tool-button" type="button" title="Clear selected cell">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path></svg>
+              <span class="sheet-tool-label">Clear cell</span>
+            </button>
+            <button id="sheetCurrencyButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Toggle Malaysian Ringgit format">
+              <span class="sheet-tool-text-icon">RM</span>
+              <span class="sheet-tool-label">RM format</span>
+            </button>
+            <button id="sheetMergeButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Merge or unmerge cells">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="6" rx="1"></rect><rect x="13" y="5" width="8" height="6" rx="1"></rect><rect x="3" y="13" width="8" height="6" rx="1"></rect><rect x="13" y="13" width="8" height="6" rx="1"></rect></svg>
+              <span class="sheet-tool-label">Merge</span>
+            </button>
+            <button id="sheetSizeButton" class="sheet-tool-button" type="button" aria-expanded="false" aria-controls="sheetSizeControls" title="Adjust row and column size">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V4h4"></path><path d="m4 4 5 5"></path><path d="M20 8V4h-4"></path><path d="m20 4-5 5"></path><path d="M4 16v4h4"></path><path d="m4 20 5-5"></path><path d="M20 16v4h-4"></path><path d="m20 20-5-5"></path></svg>
+              <span class="sheet-tool-label">Cell size</span>
+            </button>
+            <button id="sheetAddRowButton" class="sheet-tool-button" type="button" title="Add row">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M3 10h18"></path><path d="M12 20v-6"></path><path d="m9 17 3 3 3-3"></path></svg>
+              <span class="sheet-tool-label">Add row</span>
+            </button>
+            <button id="sheetAddColumnButton" class="sheet-tool-button" type="button" title="Add column">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="13" height="18" rx="2"></rect><path d="M10 3v18"></path><path d="M20 12h-6"></path><path d="m17 9 3 3-3 3"></path></svg>
+              <span class="sheet-tool-label">Add column</span>
+            </button>
+            <button id="sheetHeaderButton" class="sheet-tool-button" type="button" title="Toggle first-row header style">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18"></path></svg>
+              <span class="sheet-tool-label">Header</span>
+            </button>
+            <button id="sheetLinkOpenButton" class="sheet-tool-button" type="button" title="Link a Home dashboard value">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.2"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.2"></path></svg>
+              <span class="sheet-tool-label">Dashboard link</span>
+            </button>
+            <button id="sheetExportButton" class="sheet-tool-button" type="button" title="Export spreadsheet as CSV">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+              <span class="sheet-tool-label">Export CSV</span>
+            </button>
+            <button id="sheetClearButton" class="sheet-tool-button danger-tool" type="button" title="Clear the entire spreadsheet">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m19 6-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg>
+              <span class="sheet-tool-label">Clear all</span>
             </button>
           </div>
 
-          <section class="sheet-value-link" aria-label="Link a dashboard value to the sheet">
-            <div class="sheet-value-link-heading">
+          <div id="sheetSizeControls" class="sheet-size-controls" hidden>
+            <div class="sheet-size-heading">
               <div>
-                <span>Dashboard link</span>
-                <strong>Display a live budget value in any cell</strong>
+                <span>Selected cell</span>
+                <strong id="sheetSizeCellLabel">A1</strong>
               </div>
-              <span id="sheetLinkSummary" class="sheet-link-summary">No linked cells</span>
+              <button id="sheetCloseSizeButton" class="secondary-button compact-button" type="button">Done</button>
             </div>
 
-            <div class="sheet-value-link-grid">
-              <label>
-                <span>Value</span>
-                <select id="sheetLinkMetric">
-                  <option value="income">Total income</option>
-                  <option value="expenses">Expenses</option>
-                  <option value="saved">Saved</option>
-                  <option value="available" selected>Available balance</option>
-                </select>
-              </label>
-
-              <label>
-                <span>Cell</span>
-                <input id="sheetLinkCell" type="text" value="A10" maxlength="8" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A10">
-              </label>
-            </div>
-
-            <div class="sheet-value-link-actions">
-              <button id="sheetLinkValueButton" class="primary-button compact-button" type="button">Link value</button>
-              <button id="sheetRefreshLinksButton" class="secondary-button compact-button" type="button">Refresh</button>
-              <button id="sheetUnlinkValueButton" class="secondary-button compact-button" type="button">Unlink cell</button>
-            </div>
-
-            <p class="form-help">The linked cell updates automatically when the selected budget month, salary, savings, or transactions change.</p>
-          </section>
-
-          <div class="formula-bar" aria-label="Formula bar">
-            <span id="activeCellLabel">A1</span>
-            <input id="formulaInput" type="text" placeholder="Select a cell or type formula, e.g. =SUM(B2:B10)">
-          </div>
-
-          <div class="sheet-actions-area">
-            <div class="panel-heading sheet-title-row">
-              <div>
-                <p class="section-kicker">TABLE</p>
-                <h2 id="customSheetTitle">Quick table</h2>
+            <label class="sheet-size-field">
+              <span>Column <strong id="sheetColumnLabel">A</strong> width</span>
+              <div class="sheet-range-row">
+                <input id="sheetColumnWidth" type="range" min="48" max="320" step="2" value="112">
+                <output id="sheetColumnWidthValue" for="sheetColumnWidth">112 px</output>
               </div>
-            </div>
+            </label>
 
-            <div class="sheet-toolbar" aria-label="Spreadsheet tools">
-              <button id="sheetAddRowButton" class="secondary-button compact-button" type="button">Add row</button>
-              <button id="sheetAddColumnButton" class="secondary-button compact-button" type="button">Add column</button>
-              <button id="sheetSizeButton" class="secondary-button compact-button" type="button" aria-expanded="false" aria-controls="sheetSizeControls">Cell size</button>
-              <button id="sheetCurrencyButton" class="secondary-button compact-button" type="button" aria-pressed="false">RM format</button>
-              <button id="sheetMergeButton" class="secondary-button compact-button" type="button" aria-pressed="false">Merge cells</button>
-              <button id="sheetHeaderButton" class="secondary-button compact-button" type="button">Header row</button>
-              <button id="sheetExportButton" class="secondary-button compact-button" type="button">Export CSV</button>
-              <button id="sheetClearButton" class="danger-button compact-button" type="button">Clear</button>
-            </div>
-
-            <div id="sheetSizeControls" class="sheet-size-controls" hidden>
-              <div class="sheet-size-heading">
-                <div>
-                  <span>Selected cell</span>
-                  <strong id="sheetSizeCellLabel">A1</strong>
-                </div>
-                <button id="sheetCloseSizeButton" class="secondary-button compact-button" type="button">Done</button>
+            <label class="sheet-size-field">
+              <span>Row <strong id="sheetRowLabel">1</strong> height</span>
+              <div class="sheet-range-row">
+                <input id="sheetRowHeight" type="range" min="32" max="180" step="2" value="56">
+                <output id="sheetRowHeightValue" for="sheetRowHeight">56 px</output>
               </div>
+            </label>
 
-              <label class="sheet-size-field">
-                <span>Column <strong id="sheetColumnLabel">A</strong> width</span>
-                <div class="sheet-range-row">
-                  <input id="sheetColumnWidth" type="range" min="48" max="320" step="2" value="112">
-                  <output id="sheetColumnWidthValue" for="sheetColumnWidth">112 px</output>
-                </div>
-              </label>
-
-              <label class="sheet-size-field">
-                <span>Row <strong id="sheetRowLabel">1</strong> height</span>
-                <div class="sheet-range-row">
-                  <input id="sheetRowHeight" type="range" min="32" max="180" step="2" value="56">
-                  <output id="sheetRowHeightValue" for="sheetRowHeight">56 px</output>
-                </div>
-              </label>
-
-              <div class="sheet-size-actions">
-                <button id="sheetApplyWidthAllButton" class="secondary-button compact-button" type="button">Width to all</button>
-                <button id="sheetApplyHeightAllButton" class="secondary-button compact-button" type="button">Height to all</button>
-                <button id="sheetResetSelectedSizeButton" class="secondary-button compact-button" type="button">Reset selected</button>
-                <button id="sheetResetAllSizesButton" class="secondary-button compact-button" type="button">Reset all sizes</button>
-              </div>
+            <div class="sheet-size-actions">
+              <button id="sheetApplyWidthAllButton" class="secondary-button compact-button" type="button">Width to all</button>
+              <button id="sheetApplyHeightAllButton" class="secondary-button compact-button" type="button">Height to all</button>
+              <button id="sheetResetSelectedSizeButton" class="secondary-button compact-button" type="button">Reset selected</button>
+              <button id="sheetResetAllSizesButton" class="secondary-button compact-button" type="button">Reset all sizes</button>
             </div>
           </div>
 
-          <div class="sheet-scroll" aria-label="Editable spreadsheet">
-            <table id="customSheetTable" class="custom-sheet-table"></table>
+          <div class="offline-formula-bar" aria-label="Formula bar">
+            <span id="activeCellLabel" class="sheet-name-box">A1</span>
+            <span class="formula-symbol" aria-hidden="true">fx</span>
+            <input id="formulaInput" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter a value or formula, e.g. =SUM(B2:B10)">
+            <button id="sheetFormulaApplyButton" class="formula-apply-button" type="button">Done</button>
           </div>
+
+          <div id="sheetGridContainer" class="sheet-scroll offline-sheet-grid" aria-label="Editable offline spreadsheet">
+            <table id="customSheetTable" class="custom-sheet-table" role="grid" tabindex="0"></table>
+          </div>
+
+          <footer class="offline-sheet-statusbar" aria-live="polite">
+            <span id="sheetStatusSelection">A1 selected</span>
+            <span id="sheetLinkSummary">No dashboard links</span>
+            <span id="sheetDimensionsStatus">20 rows × 6 columns</span>
+          </footer>
         </section>
+
+        <dialog id="sheetLinkDialog" class="sheet-link-dialog" aria-labelledby="sheetLinkDialogTitle">
+          <div class="sheet-link-dialog-card">
+            <div class="sheet-link-dialog-heading">
+              <div>
+                <p class="section-kicker">DASHBOARD LINK</p>
+                <h2 id="sheetLinkDialogTitle">Link a live budget value</h2>
+              </div>
+              <button id="sheetLinkCloseButton" class="dialog-close-button" type="button" aria-label="Close dashboard link">&times;</button>
+            </div>
+
+            <section class="sheet-value-link" aria-label="Link a dashboard value to the sheet">
+              <div class="sheet-value-link-grid">
+                <label>
+                  <span>Home value</span>
+                  <select id="sheetLinkMetric">
+                    <option value="income">Total income</option>
+                    <option value="expenses">Expenses</option>
+                    <option value="saved">Saved</option>
+                    <option value="available" selected>Available balance</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>Target cell</span>
+                  <input id="sheetLinkCell" type="text" value="A1" maxlength="8" inputmode="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="A1">
+                </label>
+              </div>
+
+              <div class="sheet-value-link-actions">
+                <button id="sheetLinkValueButton" class="primary-button compact-button" type="button">Link value</button>
+                <button id="sheetRefreshLinksButton" class="secondary-button compact-button" type="button">Refresh</button>
+                <button id="sheetUnlinkValueButton" class="secondary-button compact-button" type="button">Unlink cell</button>
+              </div>
+
+              <p class="form-help">The linked cell updates automatically when salary, savings, expenses, income, or the selected budget cycle changes.</p>
+            </section>
+          </div>
+        </dialog>
 
         <dialog id="spreadsheetInfoDialog" class="spreadsheet-info-dialog" aria-labelledby="spreadsheetInfoTitle">
           <div class="spreadsheet-info-card">
             <div class="spreadsheet-info-heading">
               <div>
-                <p class="section-kicker">HELP</p>
+                <p class="section-kicker">OFFLINE JAVASCRIPT SHEET</p>
                 <h2 id="spreadsheetInfoTitle">Spreadsheet Information</h2>
               </div>
               <button id="sheetInfoCloseButton" class="dialog-close-button" type="button" aria-label="Close spreadsheet information">&times;</button>
             </div>
 
             <div class="spreadsheet-info-content">
+              <section class="info-section info-highlight">
+                <h3>Local and private</h3>
+                <p>This spreadsheet runs with JavaScript in Pocket Budget and is saved in the same local IndexedDB database. It does not open or upload data to Google Sheets, Excel, or OneDrive. Spreadsheet data is included in your encrypted <strong>.pbe</strong> backup.</p>
+              </section>
+
+              <section class="info-section">
+                <h3>How to use it</h3>
+                <ul class="spreadsheet-info-list">
+                  <li><strong>Select:</strong> tap a cell once. The keyboard stays closed, making the sheet easier to scroll on a phone.</li>
+                  <li><strong>Edit:</strong> tap Edit, double-tap a cell, or tap the formula bar. Press Done when finished.</li>
+                  <li><strong>Navigate:</strong> on a computer use Arrow keys, Tab, Enter, Delete, Ctrl/Cmd+C, and Ctrl/Cmd+V.</li>
+                  <li><strong>Focus mode:</strong> expands the spreadsheet and hides the normal app navigation temporarily.</li>
+                  <li><strong>Copy and paste:</strong> supports a single cell or tab-separated rows copied from another spreadsheet.</li>
+                </ul>
+              </section>
+
               <section class="info-section">
                 <h3>Current sheet limits</h3>
                 <div class="info-limit-grid">
                   <div><span>Maximum rows</span><strong id="sheetInfoMaxRows">120</strong></div>
                   <div><span>Maximum columns</span><strong><span id="sheetInfoMaxColumns">52</span> (A-<span id="sheetInfoLastColumn">AZ</span>)</strong></div>
                 </div>
-                <p>The sheet starts with 20 rows. Use <strong>Add row</strong> and <strong>Add column</strong> to expand it until these limits.</p>
+                <p>Use <strong>Add row</strong> and <strong>Add column</strong> to expand the workbook. Existing V28 sheet cells are kept automatically.</p>
               </section>
 
               <section class="info-section">
@@ -384,11 +476,11 @@
               <section class="info-section">
                 <h3>Formatting and table tools</h3>
                 <ul class="spreadsheet-info-list">
-                  <li><strong>RM format:</strong> select a numeric cell and tap RM format to display values such as <strong>RM 300.00</strong>. The number remains usable in calculations.</li>
-                  <li><strong>Merged cells:</strong> select the first cell, tap Merge cells, then tap the opposite corner. Select a merged cell and tap Unmerge to separate it.</li>
-                  <li><strong>Cell size:</strong> use Cell size on iPhone. On a computer, you can also drag a column or row edge.</li>
-                  <li><strong>Formula editing:</strong> select a calculated cell to view or change its original formula in the formula bar.</li>
-                  <li><strong>Dashboard links:</strong> linked Home values update automatically when the selected budget data changes.</li>
+                  <li><strong>RM format:</strong> shows a number as <strong>RM 300.00</strong> while keeping it available for calculations.</li>
+                  <li><strong>Merged cells:</strong> select the first cell, tap Merge, then tap the opposite corner. Select a merged cell and tap Unmerge to separate it.</li>
+                  <li><strong>Cell size:</strong> use Cell size on a phone. On a computer, drag a row or column edge.</li>
+                  <li><strong>Dashboard links:</strong> place Total income, Expenses, Saved, or Available balance in any valid cell.</li>
+                  <li><strong>Undo and redo:</strong> available during the current app session.</li>
                 </ul>
               </section>
             </div>
@@ -399,6 +491,7 @@
           </div>
         </dialog>
       </section>
+
 
       <section id="settingsView" class="view" aria-label="Settings">
         <div class="page-heading">

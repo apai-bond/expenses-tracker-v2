@@ -1,13 +1,13 @@
 {
   "name": "Pocket Budget - Salary Cycle Expense Tracker",
   "short_name": "Pocket Budget",
-  "description": "A personal salary-cycle income, saving, and expense tracker with local browser storage and password-encrypted backup files.",
+  "description": "A personal salary-cycle expense tracker with an offline JavaScript spreadsheet, local IndexedDB storage, and password-encrypted backup files.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#090c0b",
   "theme_color": "#0f766e",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
       "src": "icons/icon-192.png",

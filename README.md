@@ -1,4 +1,4 @@
-# Pocket Budget - Version 28 Two-Week Encrypted Backup Reminder
+# Pocket Budget - Version 29 Offline JavaScript Spreadsheet
 
 Pocket Budget is a mobile-first personal expense tracker that can run in Safari on an iPhone. Records are stored locally in IndexedDB on the device.
 
@@ -15,10 +15,30 @@ Pocket Budget is a mobile-first personal expense tracker that can run in Safari 
 - Summary cards and expense charts
 - Local IndexedDB database
 - Password-encrypted backup and restore
-- encrypted backup reminder every 2 weeks (every second Monday) that remains due until a backup is saved
+- Encrypted backup reminder every 2 weeks (every second Monday) that remains due until a backup is saved
+- Excel-style offline JavaScript spreadsheet saved in IndexedDB
+- Single-tap cell selection without immediately opening the phone keyboard
+- Formula bar editing, focus mode, copy/paste, undo/redo, merged cells, RM formatting, and dashboard links
 - Light and Dark appearance
 - Progressive Web App files
 - Python calculation logic through Pyodide
+
+
+## Version 29 - Offline JavaScript spreadsheet
+
+The Sheet tab has been rebuilt as a phone-friendly JavaScript spreadsheet. It does not embed Google Sheets or Excel for the web and does not require OneDrive. The workbook remains in the existing `customSheets` IndexedDB store, so current V28 cells, formulas, merged ranges, sizes, RM formats, and dashboard links are retained.
+
+Main spreadsheet improvements:
+
+- Tap once to select a cell without opening the keyboard.
+- Tap **Edit**, double-tap a cell, or use the formula bar to enter content.
+- Use **Focus** to expand the workbook and temporarily hide normal app navigation.
+- Copy and paste cells or tab-separated rows.
+- Session undo and redo.
+- Keyboard navigation on a computer: arrows, Tab, Enter, Delete, Ctrl/Cmd+C, Ctrl/Cmd+V, and Ctrl/Cmd+Z.
+- Existing formulas, merged cells, cell sizing, RM formatting, CSV export, and Home dashboard links continue to work.
+- Portrait and landscape orientations are supported.
+- Spreadsheet records continue to be included automatically in encrypted `.pbe` backups.
 
 ## Salary-cycle example
 
@@ -66,7 +86,7 @@ python start_server.py
 4. Open:
 
 ```text
-http://localhost:8000/?v=26
+http://localhost:8000/?v=29
 ```
 
 Do not double-click `index.html`. The app loads its files through the local web server.
@@ -79,7 +99,7 @@ Do not double-click `index.html`. The app loads its files through the local web 
 4. Open Safari on the iPhone and enter:
 
 ```text
-http://192.168.1.50:8000/?v=26
+http://192.168.1.50:8000/?v=29
 ```
 
 The computer and iPhone must be connected to the same local network. Allow Python through Windows Firewall on private networks when prompted.
@@ -90,10 +110,10 @@ The interface can be tested through this local-network HTTP address, but encrypt
 
 Upload all project files to the repository root, including the new `cycle.js` file. GitHub Pages should deploy from the `main` branch and `/ (root)` folder.
 
-After deployment, close and reopen the Home Screen app. Version 28 uses this cache name:
+After deployment, close and reopen the Home Screen app. Version 29 uses this cache name:
 
 ```text
-pocket-budget-v28-two-week-backup
+pocket-budget-v29-offline-javascript-sheet
 ```
 
 ## Data backup
@@ -104,7 +124,7 @@ Backup files use the `.pbe` extension. The records and spreadsheet data are encr
 
 Importing an encrypted backup requires its password and replaces the current local data after confirmation. Older unencrypted Pocket Budget JSON backups can still be imported for compatibility, but all new exports are encrypted.
 
-Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 28.
+Clearing Safari website data or removing stored site data can delete the local database. Keep encrypted backups while testing. The IndexedDB database itself remains unencrypted in Version 29. The exported `.pbe` backup remains password-encrypted.
 
 ## Python learning area
 

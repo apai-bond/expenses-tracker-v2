@@ -2601,3 +2601,645 @@ body.sheet-resizing-row * {
     grid-row: 1;
   }
 }
+
+/* Version 29: Excel-like offline JavaScript spreadsheet */
+.offline-sheet-workspace {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(360px, 1fr) auto;
+  gap: 0;
+  min-height: 690px;
+  padding: 0;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--line));
+}
+
+.offline-sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 16px 13px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.offline-sheet-title-block {
+  min-width: 0;
+}
+
+.offline-sheet-title-block > p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.offline-sheet-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.offline-sheet-title-row h2 {
+  margin: 2px 0 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+}
+
+.sheet-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.sheet-save-state::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success, #2d8b67);
+  content: "";
+}
+
+.sheet-save-state[data-state="saving"]::before {
+  background: var(--warning, #b57a2b);
+  animation: sheet-saving-pulse 900ms ease-in-out infinite alternate;
+}
+
+.sheet-save-state[data-state="pending"]::before {
+  background: var(--danger, #b64545);
+}
+
+@keyframes sheet-saving-pulse {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+.offline-sheet-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.sheet-header-button {
+  display: inline-grid;
+  min-width: 58px;
+  min-height: 48px;
+  place-items: center;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sheet-header-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sheet-header-button span {
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.sheet-header-button[aria-pressed="true"],
+.sheet-header-button:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.offline-sheet-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 9px 10px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-soft) 80%, var(--surface));
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.offline-sheet-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.sheet-tool-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: 66px;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.sheet-tool-button svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.sheet-tool-text-icon {
+  display: grid;
+  min-width: 26px;
+  height: 20px;
+  place-items: center;
+  color: currentColor;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.sheet-tool-label {
+  max-width: 86px;
+  overflow: hidden;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-tool-button:hover,
+.sheet-tool-button:focus-visible,
+.sheet-tool-button.active-tool,
+.sheet-tool-button[aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--primary-dark);
+  outline: none;
+}
+
+.sheet-tool-button.primary-tool {
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.sheet-tool-button.danger-tool {
+  color: var(--danger);
+}
+
+.sheet-tool-button:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
+.offline-sheet-workspace .sheet-size-controls {
+  margin: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  padding: 13px 16px;
+}
+
+.offline-formula-bar {
+  display: grid;
+  grid-template-columns: 64px 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  z-index: 8;
+}
+
+.sheet-name-box,
+.formula-symbol {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.sheet-name-box {
+  overflow: hidden;
+  color: var(--primary-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formula-symbol {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: Georgia, serif;
+  font-size: 1rem;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.offline-formula-bar input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  outline: none;
+  font: inherit;
+  font-size: 16px;
+}
+
+.offline-formula-bar input:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.formula-apply-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: white;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.offline-sheet-grid {
+  width: 100%;
+  min-height: 360px;
+  height: min(58dvh, 650px);
+  margin: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.offline-sheet-grid:focus-visible,
+.custom-sheet-table:focus-visible {
+  outline: none;
+}
+
+.custom-sheet-table {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.custom-sheet-table td {
+  position: relative;
+  cursor: cell;
+  vertical-align: middle;
+}
+
+.js-sheet-cell {
+  display: flex;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 3px 7px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.js-sheet-cell-value {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-number-cell .js-sheet-cell-value,
+.sheet-currency-cell .js-sheet-cell-value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.sheet-table-header-cell .js-sheet-cell-value {
+  color: var(--primary-dark);
+  font-weight: 850;
+  text-align: left;
+}
+
+.sheet-table-header-cell.sheet-empty-cell .js-sheet-cell::before {
+  color: color-mix(in srgb, var(--muted) 60%, transparent);
+  content: attr(data-placeholder);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.custom-sheet-table td.sheet-cell-selected {
+  z-index: 3;
+  box-shadow: inset 0 0 0 2px var(--primary), 0 0 0 1px var(--surface);
+}
+
+.custom-sheet-table td.sheet-cell-selected .js-sheet-cell {
+  background: color-mix(in srgb, var(--primary-soft) 58%, transparent);
+}
+
+.custom-sheet-table td.sheet-formula-cell::after {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 0;
+  height: 0;
+  border-top: 7px solid var(--primary);
+  border-left: 7px solid transparent;
+  content: "";
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.custom-sheet-table td.sheet-linked-cell {
+  background: color-mix(in srgb, var(--primary-soft) 72%, var(--surface));
+}
+
+.custom-sheet-table td.sheet-linked-cell .js-sheet-cell-value {
+  color: var(--primary-dark);
+  font-weight: 900;
+}
+
+.custom-sheet-table td.sheet-merged-cell .js-sheet-cell {
+  padding: 5px 9px;
+  font-weight: 750;
+}
+
+.custom-sheet-table td.sheet-merge-start-cell {
+  box-shadow: inset 0 0 0 3px var(--primary);
+}
+
+.offline-sheet-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.offline-sheet-statusbar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.offline-sheet-statusbar span:first-child {
+  color: var(--primary-dark);
+}
+
+.sheet-link-dialog {
+  width: min(620px, calc(100vw - 28px));
+  max-height: min(82dvh, 680px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+}
+
+.sheet-link-dialog::backdrop {
+  background: rgba(4, 10, 9, 0.7);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+
+.sheet-link-dialog-card {
+  display: grid;
+  max-height: min(82dvh, 680px);
+  overflow: auto;
+}
+
+.sheet-link-dialog-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 18px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-link-dialog-heading h2 {
+  margin: 3px 0 0;
+  font-size: 1.25rem;
+}
+
+.sheet-link-dialog .sheet-value-link {
+  margin: 0;
+  padding: 18px;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.info-highlight {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: color-mix(in srgb, var(--primary-soft) 58%, var(--surface));
+}
+
+body.sheet-focus-mode {
+  overflow: hidden;
+  background: var(--surface);
+}
+
+body.sheet-focus-mode .topbar,
+body.sheet-focus-mode .engine-status,
+body.sheet-focus-mode #sheetView > .page-heading,
+body.sheet-focus-mode .bottom-nav {
+  display: none !important;
+}
+
+body.sheet-focus-mode .app-shell,
+body.sheet-focus-mode main,
+body.sheet-focus-mode #sheetView {
+  width: 100%;
+  max-width: none;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+}
+
+body.sheet-focus-mode #sheetView {
+  display: block;
+}
+
+body.sheet-focus-mode .offline-sheet-workspace {
+  position: fixed;
+  z-index: 3000;
+  inset: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding-top: env(safe-area-inset-top);
+}
+
+body.sheet-focus-mode .offline-sheet-grid {
+  height: auto;
+  min-height: 0;
+}
+
+@media (max-width: 620px) {
+  .offline-sheet-workspace {
+    min-height: 640px;
+    margin-inline: -2px;
+  }
+
+  .offline-sheet-header {
+    align-items: center;
+    padding: 13px 12px 11px;
+  }
+
+  .offline-sheet-title-block > p {
+    display: none;
+  }
+
+  .offline-sheet-title-row h2 {
+    font-size: 1.06rem;
+  }
+
+  .sheet-save-state {
+    min-height: 24px;
+    padding: 3px 7px;
+    font-size: 0.62rem;
+  }
+
+  .sheet-header-button {
+    min-width: 50px;
+    min-height: 44px;
+    padding: 5px 7px;
+  }
+
+  .offline-sheet-toolbar {
+    padding-inline: 7px;
+  }
+
+  .sheet-tool-button {
+    min-width: 62px;
+    min-height: 48px;
+  }
+
+  .offline-formula-bar {
+    grid-template-columns: 56px 24px minmax(0, 1fr) 52px;
+    padding-inline: 7px;
+  }
+
+  .formula-apply-button {
+    padding-inline: 8px;
+  }
+
+  .offline-sheet-grid {
+    height: 54dvh;
+    min-height: 330px;
+  }
+
+  .offline-sheet-statusbar {
+    gap: 8px;
+    padding-inline: 9px;
+    font-size: 0.64rem;
+  }
+
+  .offline-sheet-statusbar #sheetLinkSummary {
+    display: none;
+  }
+
+  .sheet-link-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 20px;
+  }
+
+  .sheet-link-dialog-card {
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  body.sheet-focus-mode .offline-sheet-header {
+    padding-top: 9px;
+  }
+}
+
+@media (max-width: 390px) {
+  .offline-sheet-header-actions {
+    gap: 5px;
+  }
+
+  .sheet-header-button {
+    min-width: 46px;
+  }
+
+  .offline-formula-bar {
+    grid-template-columns: 52px 20px minmax(0, 1fr) 48px;
+    gap: 4px;
+  }
+
+  .sheet-name-box,
+  .formula-symbol,
+  .offline-formula-bar input,
+  .formula-apply-button {
+    min-height: 38px;
+  }
+}
+
+/* V29 layout correction: the optional size panel should not displace the formula bar. */
+.offline-sheet-workspace {
+  display: flex;
+  flex-direction: column;
+}
+
+.offline-sheet-header,
+.offline-sheet-toolbar,
+.offline-sheet-workspace > .sheet-size-controls,
+.offline-formula-bar,
+.offline-sheet-statusbar {
+  flex: 0 0 auto;
+}
+
+.offline-sheet-grid {
+  flex: 1 1 auto;
+}
+
+body.sheet-focus-mode .offline-sheet-workspace {
+  display: flex;
+  flex-direction: column;
+}

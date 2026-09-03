@@ -14,6 +14,14 @@ const state = {
   sheetSaveTimer: null,
   sheetResize: null,
   sheetMergeStart: null,
+  sheetHistory: [],
+  sheetHistoryIndex: -1,
+  sheetHistorySuspended: false,
+  sheetFormulaOriginalValue: "",
+  sheetLastTapCell: "",
+  sheetLastTapAt: 0,
+  sheetFocusMode: false,
+  sheetClipboardText: "",
   python: null,
   pythonReady: false,
   toastTimer: null,
@@ -75,6 +83,10 @@ async function initializeApp() {
     document.getElementById("monthPicker").value = state.currentMonth;
     setEngineStatus("Local database ready. Loading Python calculations...", "");
     await refreshAll();
+    const requestedView = new URLSearchParams(window.location.search).get("view");
+    if (["home", "transactions", "add", "sheet", "settings"].includes(requestedView)) {
+      showView(requestedView);
+    }
     updateBackupReminderStatus();
     scheduleWeeklyBackupReminderCheck(450);
     loadPythonEngine();
@@ -177,11 +189,28 @@ function bindEvents() {
   document.getElementById("sheetHeaderButton").addEventListener("click", toggleCustomSheetHeader);
   document.getElementById("sheetExportButton").addEventListener("click", exportCustomSheetCsv);
   document.getElementById("sheetClearButton").addEventListener("click", clearCustomSheetData);
+  document.getElementById("sheetDeleteButton").addEventListener("click", clearSelectedSheetCell);
+  document.getElementById("sheetCopyButton").addEventListener("click", copySelectedSheetCell);
+  document.getElementById("sheetPasteButton").addEventListener("click", pasteIntoSelectedSheetCell);
+  document.getElementById("sheetUndoButton").addEventListener("click", undoSheetChange);
+  document.getElementById("sheetRedoButton").addEventListener("click", redoSheetChange);
+  document.getElementById("sheetEditButton").addEventListener("click", focusSheetFormulaEditor);
+  document.getElementById("sheetFocusButton").addEventListener("click", () => setSheetFocusMode(!state.sheetFocusMode));
+  document.getElementById("sheetFormulaApplyButton").addEventListener("click", applySheetFormulaEdit);
+
+  document.getElementById("sheetLinkOpenButton").addEventListener("click", openSheetLinkDialog);
+  document.getElementById("sheetLinkCloseButton").addEventListener("click", closeSheetLinkDialog);
   document.getElementById("sheetLinkValueButton").addEventListener("click", linkDashboardValueToSheet);
   document.getElementById("sheetRefreshLinksButton").addEventListener("click", refreshDashboardSheetLinks);
   document.getElementById("sheetUnlinkValueButton").addEventListener("click", unlinkDashboardValueFromSheet);
   document.getElementById("sheetLinkCell").addEventListener("input", normaliseSheetLinkCellInput);
-  document.getElementById("formulaInput").addEventListener("input", updateActiveCellFromFormulaBar);
+
+  const formulaInput = document.getElementById("formulaInput");
+  formulaInput.addEventListener("focus", beginSheetFormulaEdit);
+  formulaInput.addEventListener("input", updateActiveCellFromFormulaBar);
+  formulaInput.addEventListener("blur", finishSheetFormulaEdit);
+  formulaInput.addEventListener("keydown", handleSheetFormulaKeyDown);
+
   document.getElementById("sheetInfoButton").addEventListener("click", openSpreadsheetInfo);
   document.getElementById("sheetInfoCloseButton").addEventListener("click", closeSpreadsheetInfo);
   document.getElementById("sheetInfoDoneButton").addEventListener("click", closeSpreadsheetInfo);
@@ -190,11 +219,24 @@ function bindEvents() {
   infoDialog.addEventListener("click", (event) => {
     if (event.target === infoDialog) closeSpreadsheetInfo();
   });
+  infoDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeSpreadsheetInfo();
+  });
+
+  const linkDialog = document.getElementById("sheetLinkDialog");
+  linkDialog.addEventListener("click", (event) => {
+    if (event.target === linkDialog) closeSheetLinkDialog();
+  });
+  linkDialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeSheetLinkDialog();
+  });
 
   const sheetTable = document.getElementById("customSheetTable");
-  sheetTable.addEventListener("focusin", handleSheetCellFocus);
-  sheetTable.addEventListener("focusout", handleSheetCellBlur);
-  sheetTable.addEventListener("input", handleSheetCellInput);
+  sheetTable.addEventListener("click", handleSheetCellClick);
+  sheetTable.addEventListener("dblclick", handleSheetCellDoubleClick);
+  sheetTable.addEventListener("keydown", handleSheetGridKeyDown);
   sheetTable.addEventListener("pointerdown", handleSheetMergePointerDown);
   sheetTable.addEventListener("pointerdown", handleSheetResizePointerDown);
 
@@ -226,6 +268,28 @@ function openSpreadsheetInfo() {
 
 function closeSpreadsheetInfo() {
   const dialog = document.getElementById("spreadsheetInfoDialog");
+  if (!dialog) return;
+  if (typeof dialog.close === "function" && dialog.open) {
+    dialog.close();
+  } else {
+    dialog.removeAttribute("open");
+  }
+}
+
+function openSheetLinkDialog() {
+  const dialog = document.getElementById("sheetLinkDialog");
+  if (!dialog) return;
+  const cellInput = document.getElementById("sheetLinkCell");
+  if (cellInput) cellInput.value = state.activeSheetCell || "A1";
+  if (typeof dialog.showModal === "function") {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
+}
+
+function closeSheetLinkDialog() {
+  const dialog = document.getElementById("sheetLinkDialog");
   if (!dialog) return;
   if (typeof dialog.close === "function" && dialog.open) {
     dialog.close();
@@ -309,7 +373,7 @@ async function loadPythonEngine() {
       indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/"
     });
 
-    const response = await fetch("calculations.py?v=26", { cache: "no-cache" });
+    const response = await fetch("calculations.py?v=29", { cache: "no-cache" });
     if (!response.ok) {
       throw new Error("Could not load calculations.py");
     }
@@ -348,6 +412,7 @@ async function refreshAll() {
   state.transactions = transactions;
   state.categories = categories;
   state.customSheet = normaliseCustomSheet(customSheet);
+  resetSheetHistory();
   state.latestSummary = calculateSummaryFallback(state.monthRecord, state.transactions);
 
   renderCycleInformation();
@@ -363,6 +428,7 @@ async function refreshAll() {
 function showView(viewName) {
   const validViews = ["home", "transactions", "add", "sheet", "settings"];
   const nextView = validViews.includes(viewName) ? viewName : "home";
+  if (nextView !== "sheet" && state.sheetFocusMode) setSheetFocusMode(false);
   if (nextView !== "sheet" && state.sheetMergeStart) {
     state.sheetMergeStart = null;
     updateSheetMergeButton();
@@ -1692,12 +1758,12 @@ function renderCustomSheet() {
   const activeMerge = getSheetMergeForCell(state.activeSheetCell);
   if (activeMerge) state.activeSheetCell = getSheetMergeAnchorKey(activeMerge);
 
-  document.getElementById("customSheetTitle").textContent = sheet.name;
-  document.getElementById("sheetHeaderButton").textContent = sheet.headerRow ? "Header on" : "Header off";
+  document.getElementById("customSheetTitle").textContent = sheet.name === "Quick table" ? "My offline sheet" : sheet.name;
+  setSheetToolLabel("sheetHeaderButton", sheet.headerRow ? "Header on" : "Header off");
   renderSheetLinkSummary();
 
   const table = document.getElementById("customSheetTable");
-  const scrollContainer = table.closest(".sheet-scroll");
+  const scrollContainer = document.getElementById("sheetGridContainer") || table.closest(".sheet-scroll");
   const previousScrollLeft = scrollContainer?.scrollLeft || 0;
   const previousScrollTop = scrollContainer?.scrollTop || 0;
   const columnHeaders = Array.from({ length: sheet.cols }, (_, index) => columnIndexToName(index + 1));
@@ -1714,12 +1780,12 @@ function renderCustomSheet() {
 
   const headerHtml = `
     <thead>
-      <tr>
+      <tr role="row">
         <th class="sheet-corner" aria-label="Cell coordinates"></th>
         ${columnHeaders.map((letter) => {
           const width = getSheetColumnWidth(letter);
           return `
-            <th scope="col" data-sheet-column="${letter}" style="width:${width}px;min-width:${width}px;max-width:${width}px">
+            <th scope="col" role="columnheader" data-sheet-column="${letter}" style="width:${width}px;min-width:${width}px;max-width:${width}px">
               <span class="sheet-heading-label">${letter}</span>
               <span class="sheet-resize-handle sheet-column-resize-handle" data-resize-column="${letter}" role="separator" aria-orientation="vertical" aria-label="Resize column ${letter}"></span>
             </th>`;
@@ -1731,7 +1797,7 @@ function renderCustomSheet() {
     const rowNumber = rowIndex + 1;
     const rowHeight = getSheetRowHeight(rowNumber);
     const isHeaderRow = sheet.headerRow && rowNumber === 1;
-    const cells = columnHeaders.map((letter, columnIndex) => {
+    const cells = columnHeaders.map((letter) => {
       const key = `${letter}${rowNumber}`;
       const merge = mergeByCell.get(key);
       const anchorKey = merge ? getSheetMergeAnchorKey(merge) : key;
@@ -1747,28 +1813,31 @@ function renderCustomSheet() {
       const colSpan = merge ? merge.endCol - merge.startCol + 1 : 1;
       const rowSpan = merge ? merge.endRow - merge.startRow + 1 : 1;
       const rangeLabel = merge ? getSheetMergeRangeLabel(merge) : key;
+      const numericValue = link || isFormula || tryParseSheetNumber(rawValue) !== null;
       const classes = [
         isHeaderRow ? "sheet-table-header-cell" : "",
         merge ? "sheet-merged-cell" : "",
         link ? "sheet-linked-cell" : "",
-        effectiveFormat === "currency" ? "sheet-currency-cell" : ""
+        isFormula ? "sheet-formula-cell" : "",
+        effectiveFormat === "currency" ? "sheet-currency-cell" : "",
+        numericValue ? "sheet-number-cell" : "",
+        displayValue === "" ? "sheet-empty-cell" : ""
       ].filter(Boolean).join(" ");
       const cellTitle = link
         ? `${getSheetLinkLabel(link.metric)} linked to ${anchorKey}`
         : merge ? `Merged ${rangeLabel}` : `Cell ${key}`;
-      const resultText = "";
 
       return `
-        <td class="${classes}" data-sheet-cell="${anchorKey}" data-sheet-column="${letter}" data-sheet-row="${rowNumber}" ${colSpan > 1 ? `colspan="${colSpan}"` : ""} ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ""} style="width:${width}px;min-width:${width}px;max-width:${width}px;height:${height}px" title="${escapeHtml(cellTitle)}">
-          <div class="sheet-cell-wrap" style="height:${height}px;min-height:${height}px">
-            <input class="sheet-cell-input${link ? " linked-value" : ""}${effectiveFormat === "currency" ? " currency-value" : ""}" data-cell="${anchorKey}" value="${escapeHtml(displayValue)}" placeholder="${isHeaderRow ? "Header" : ""}" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" ${link ? "readonly" : ""} aria-label="${escapeHtml(cellTitle)}">
-            <small class="sheet-cell-result" data-result-cell="${anchorKey}">${escapeHtml(resultText)}</small>
+        <td class="${classes}" role="gridcell" tabindex="-1" aria-selected="false" data-sheet-cell="${anchorKey}" data-sheet-column="${letter}" data-sheet-row="${rowNumber}" ${colSpan > 1 ? `colspan="${colSpan}"` : ""} ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ""} style="width:${width}px;min-width:${width}px;max-width:${width}px;height:${height}px" title="${escapeHtml(cellTitle)}">
+          <div class="js-sheet-cell" data-cell="${anchorKey}" data-placeholder="${isHeaderRow ? "Header" : ""}" style="height:${height}px;min-height:${height}px">
+            <span class="js-sheet-cell-value">${escapeHtml(displayValue)}</span>
           </div>
         </td>`;
     }).join("");
+
     return `
-      <tr data-sheet-row="${rowNumber}" style="height:${rowHeight}px">
-        <th scope="row" data-sheet-row-header="${rowNumber}" style="height:${rowHeight}px">
+      <tr role="row" data-sheet-row="${rowNumber}" style="height:${rowHeight}px">
+        <th scope="row" role="rowheader" data-sheet-row-header="${rowNumber}" style="height:${rowHeight}px">
           <span class="sheet-heading-label">${rowNumber}</span>
           <span class="sheet-resize-handle sheet-row-resize-handle" data-resize-row="${rowNumber}" role="separator" aria-orientation="horizontal" aria-label="Resize row ${rowNumber}"></span>
         </th>
@@ -1777,15 +1846,347 @@ function renderCustomSheet() {
   }).join("");
 
   table.style.width = `${totalColumnWidth}px`;
+  table.setAttribute("aria-rowcount", String(sheet.rows));
+  table.setAttribute("aria-colcount", String(sheet.cols));
   table.innerHTML = `${headerHtml}<tbody>${bodyHtml}</tbody>`;
-  setActiveSheetCell(state.activeSheetCell || "A1", false);
+
+  setActiveSheetCell(state.activeSheetCell || "A1", true, false);
   updateSheetSizeControls();
   updateSheetMergeSelectionVisual();
+  updateSheetHistoryButtons();
+  updateSheetDimensionsStatus();
+  setSheetSaveStatus("Saved locally", "saved");
 
   if (scrollContainer) {
     scrollContainer.scrollLeft = previousScrollLeft;
     scrollContainer.scrollTop = previousScrollTop;
   }
+}
+
+function handleSheetCellClick(event) {
+  if (event.target.closest?.(".sheet-resize-handle")) return;
+  const cell = event.target.closest?.("td[data-sheet-cell]");
+  if (!cell || state.sheetMergeStart) return;
+
+  const cellKey = cell.dataset.sheetCell;
+  const now = Date.now();
+  const isSecondTap = state.sheetLastTapCell === cellKey && now - state.sheetLastTapAt < 420;
+  state.sheetLastTapCell = cellKey;
+  state.sheetLastTapAt = now;
+
+  setActiveSheetCell(cellKey, true, false);
+  document.getElementById("customSheetTable")?.focus({ preventScroll: true });
+  if (isSecondTap) focusSheetFormulaEditor();
+}
+
+function handleSheetCellDoubleClick(event) {
+  const cell = event.target.closest?.("td[data-sheet-cell]");
+  if (!cell || state.sheetMergeStart) return;
+  event.preventDefault();
+  setActiveSheetCell(cell.dataset.sheetCell, true, false);
+  focusSheetFormulaEditor();
+}
+
+function focusSheetFormulaEditor() {
+  const input = document.getElementById("formulaInput");
+  if (!input || !state.activeSheetCell) return;
+  input.value = getSheetRawValue(state.activeSheetCell);
+  input.focus({ preventScroll: false });
+  const end = input.value.length;
+  input.setSelectionRange?.(end, end);
+}
+
+function beginSheetFormulaEdit() {
+  if (!state.activeSheetCell) return;
+  state.sheetFormulaOriginalValue = getSheetRawValue(state.activeSheetCell);
+}
+
+async function finishSheetFormulaEdit() {
+  if (!state.customSheet) return;
+  clearTimeout(state.sheetSaveTimer);
+  await saveCustomSheetNow();
+  document.getElementById("formulaInput").value = getSheetRawValue(state.activeSheetCell);
+}
+
+function applySheetFormulaEdit() {
+  const input = document.getElementById("formulaInput");
+  if (!input) return;
+  input.blur();
+  document.getElementById("customSheetTable")?.focus({ preventScroll: true });
+}
+
+function handleSheetFormulaKeyDown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    const current = parseCellKey(state.activeSheetCell || "A1");
+    applySheetFormulaEdit();
+    if (current) moveActiveSheetCell(1, 0, true);
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    setSheetRawValue(state.activeSheetCell, state.sheetFormulaOriginalValue);
+    event.target.value = state.sheetFormulaOriginalValue;
+    updateSheetFormulaResults();
+    event.target.blur();
+  }
+}
+
+function handleSheetGridKeyDown(event) {
+  if (state.currentView !== "sheet") return;
+  const commandKey = event.ctrlKey || event.metaKey;
+  const key = event.key.toLowerCase();
+
+  if (commandKey && key === "c") {
+    event.preventDefault();
+    copySelectedSheetCell();
+    return;
+  }
+
+  if (commandKey && key === "v") {
+    event.preventDefault();
+    pasteIntoSelectedSheetCell();
+    return;
+  }
+
+  if (commandKey && key === "z") {
+    event.preventDefault();
+    if (event.shiftKey) redoSheetChange(); else undoSheetChange();
+    return;
+  }
+
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
+    moveActiveSheetCell(-1, 0, true);
+  } else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    moveActiveSheetCell(1, 0, true);
+  } else if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    moveActiveSheetCell(0, -1, true);
+  } else if (event.key === "ArrowRight") {
+    event.preventDefault();
+    moveActiveSheetCell(0, 1, true);
+  } else if (event.key === "Tab") {
+    event.preventDefault();
+    moveActiveSheetCell(0, event.shiftKey ? -1 : 1, true);
+  } else if (event.key === "Enter" || event.key === "F2") {
+    event.preventDefault();
+    focusSheetFormulaEditor();
+  } else if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    clearSelectedSheetCell();
+  } else if (event.key === "Escape") {
+    if (state.sheetMergeStart) {
+      state.sheetMergeStart = null;
+      updateSheetMergeButton();
+      updateSheetMergeSelectionVisual();
+    } else if (state.sheetFocusMode) {
+      setSheetFocusMode(false);
+    }
+  }
+}
+
+function moveActiveSheetCell(rowDelta, columnDelta, shouldScroll = true) {
+  if (!state.customSheet) return;
+  const current = parseCellKey(state.activeSheetCell || "A1") || { row: 1, col: 1 };
+  const nextRow = Math.min(Math.max(current.row + rowDelta, 1), state.customSheet.rows);
+  const nextColumn = Math.min(Math.max(current.col + columnDelta, 1), state.customSheet.cols);
+  setActiveSheetCell(`${columnIndexToName(nextColumn)}${nextRow}`, true, shouldScroll);
+}
+
+function setSheetFocusMode(enabled) {
+  state.sheetFocusMode = Boolean(enabled);
+  document.body.classList.toggle("sheet-focus-mode", state.sheetFocusMode);
+  const button = document.getElementById("sheetFocusButton");
+  if (button) {
+    button.setAttribute("aria-pressed", String(state.sheetFocusMode));
+    setSheetToolLabel(button, state.sheetFocusMode ? "Exit" : "Focus");
+  }
+  if (state.sheetFocusMode) {
+    document.getElementById("customSheetTable")?.focus({ preventScroll: true });
+  }
+}
+
+function setSheetToolLabel(buttonOrId, label) {
+  const button = typeof buttonOrId === "string" ? document.getElementById(buttonOrId) : buttonOrId;
+  if (!button) return;
+  const labelElement = button.querySelector(".sheet-tool-label");
+  if (labelElement) labelElement.textContent = label;
+  else button.textContent = label;
+}
+
+function setSheetSaveStatus(message, status = "saved") {
+  const element = document.getElementById("sheetSaveState");
+  if (!element) return;
+  element.textContent = message;
+  element.dataset.state = status;
+}
+
+function updateSheetDimensionsStatus() {
+  const element = document.getElementById("sheetDimensionsStatus");
+  if (!element || !state.customSheet) return;
+  element.textContent = `${state.customSheet.rows} rows × ${state.customSheet.cols} columns`;
+}
+
+function getSheetHistorySnapshot() {
+  if (!state.customSheet) return "";
+  const sheet = normaliseCustomSheet(state.customSheet);
+  const snapshot = {
+    id: sheet.id,
+    name: sheet.name,
+    rows: sheet.rows,
+    cols: sheet.cols,
+    headerRow: sheet.headerRow,
+    cells: sheet.cells,
+    columnWidths: sheet.columnWidths,
+    rowHeights: sheet.rowHeights,
+    formats: sheet.formats,
+    merges: sheet.merges,
+    links: sheet.links
+  };
+  return JSON.stringify(snapshot);
+}
+
+function resetSheetHistory() {
+  const snapshot = getSheetHistorySnapshot();
+  state.sheetHistory = snapshot ? [snapshot] : [];
+  state.sheetHistoryIndex = state.sheetHistory.length ? 0 : -1;
+  updateSheetHistoryButtons();
+}
+
+function commitSheetHistory() {
+  if (state.sheetHistorySuspended) return;
+  const snapshot = getSheetHistorySnapshot();
+  if (!snapshot) return;
+  const current = state.sheetHistory[state.sheetHistoryIndex];
+  if (snapshot === current) {
+    updateSheetHistoryButtons();
+    return;
+  }
+
+  state.sheetHistory = state.sheetHistory.slice(0, state.sheetHistoryIndex + 1);
+  state.sheetHistory.push(snapshot);
+  if (state.sheetHistory.length > 40) state.sheetHistory.shift();
+  state.sheetHistoryIndex = state.sheetHistory.length - 1;
+  updateSheetHistoryButtons();
+}
+
+function updateSheetHistoryButtons() {
+  const undoButton = document.getElementById("sheetUndoButton");
+  const redoButton = document.getElementById("sheetRedoButton");
+  if (undoButton) undoButton.disabled = state.sheetHistoryIndex <= 0;
+  if (redoButton) redoButton.disabled = state.sheetHistoryIndex < 0 || state.sheetHistoryIndex >= state.sheetHistory.length - 1;
+}
+
+async function restoreSheetHistorySnapshot(snapshot) {
+  if (!snapshot || !state.customSheet) return;
+  state.sheetHistorySuspended = true;
+  try {
+    const restored = JSON.parse(snapshot);
+    state.customSheet = normaliseCustomSheet({
+      ...state.customSheet,
+      ...restored,
+      createdAt: state.customSheet.createdAt
+    });
+    await saveCustomSheetNow({ recordHistory: false });
+    renderCustomSheet();
+  } finally {
+    state.sheetHistorySuspended = false;
+  }
+}
+
+async function undoSheetChange() {
+  if (state.sheetHistoryIndex <= 0) {
+    showToast("Nothing to undo.");
+    return;
+  }
+  state.sheetHistoryIndex -= 1;
+  await restoreSheetHistorySnapshot(state.sheetHistory[state.sheetHistoryIndex]);
+  updateSheetHistoryButtons();
+  showToast("Spreadsheet change undone.");
+}
+
+async function redoSheetChange() {
+  if (state.sheetHistoryIndex >= state.sheetHistory.length - 1) {
+    showToast("Nothing to redo.");
+    return;
+  }
+  state.sheetHistoryIndex += 1;
+  await restoreSheetHistorySnapshot(state.sheetHistory[state.sheetHistoryIndex]);
+  updateSheetHistoryButtons();
+  showToast("Spreadsheet change restored.");
+}
+
+async function clearSelectedSheetCell() {
+  if (!state.customSheet || !state.activeSheetCell) return;
+  const target = state.activeSheetCell;
+  removeSheetLinkForCell(target);
+  setSheetRawValue(target, "");
+  setSheetCellFormat(target, "general");
+  await saveCustomSheetNow();
+  updateSheetFormulaResults();
+  renderSheetLinkSummary();
+  document.getElementById("formulaInput").value = "";
+  showToast(`${target} cleared.`);
+}
+
+async function copySelectedSheetCell() {
+  if (!state.activeSheetCell) return;
+  const text = getSheetRawValue(state.activeSheetCell);
+  state.sheetClipboardText = text;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`${state.activeSheetCell} copied.`);
+  } catch (_) {
+    showToast(`${state.activeSheetCell} copied inside Pocket Budget.`);
+  }
+}
+
+async function readSheetClipboardText() {
+  try {
+    const value = await navigator.clipboard.readText();
+    if (value !== "") return value;
+  } catch (_) {}
+  if (state.sheetClipboardText !== "") return state.sheetClipboardText;
+  return window.prompt("Paste spreadsheet text here. Rows can be separated by a new line and columns by a tab.", "") ?? "";
+}
+
+async function pasteIntoSelectedSheetCell() {
+  if (!state.customSheet || !state.activeSheetCell) return;
+  const clipboardText = await readSheetClipboardText();
+  if (clipboardText === "") {
+    showToast("No clipboard content available.");
+    return;
+  }
+
+  const start = parseCellKey(state.activeSheetCell);
+  if (!start) return;
+  const rows = clipboardText.replace(/\r\n?/g, "\n").split("\n");
+  if (rows.length > 1 && rows.at(-1) === "") rows.pop();
+  const matrix = rows.map((row) => row.split("\t"));
+  const neededRows = Math.min(SHEET_MAX_ROWS, start.row + matrix.length - 1);
+  const widest = Math.max(...matrix.map((row) => row.length), 1);
+  const neededColumns = Math.min(SHEET_MAX_COLUMNS, start.col + widest - 1);
+  state.customSheet.rows = Math.max(state.customSheet.rows, neededRows);
+  state.customSheet.cols = Math.max(state.customSheet.cols, neededColumns);
+
+  matrix.forEach((rowValues, rowOffset) => {
+    rowValues.forEach((value, columnOffset) => {
+      const rowNumber = start.row + rowOffset;
+      const columnNumber = start.col + columnOffset;
+      if (rowNumber > SHEET_MAX_ROWS || columnNumber > SHEET_MAX_COLUMNS) return;
+      const key = `${columnIndexToName(columnNumber)}${rowNumber}`;
+      removeSheetLinkForCell(key);
+      setSheetRawValue(key, value);
+    });
+  });
+
+  await saveCustomSheetNow();
+  renderCustomSheet();
+  setActiveSheetCell(state.activeSheetCell, true, true);
+  showToast(matrix.length === 1 && widest === 1 ? `Pasted into ${state.activeSheetCell}.` : `${matrix.length} row${matrix.length === 1 ? "" : "s"} pasted.`);
 }
 
 function handleSheetCellFocus(event) {
@@ -1817,18 +2218,38 @@ function handleSheetCellInput(event) {
   scheduleCustomSheetSave();
 }
 
-function setActiveSheetCell(cellKey, syncFormula) {
-  if (!cellKey) return;
+function setActiveSheetCell(cellKey, syncFormula, shouldScroll = false) {
+  if (!cellKey || !state.customSheet) return;
   const merge = getSheetMergeForCell(cellKey);
-  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : cellKey;
+  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : String(cellKey).toUpperCase();
   state.activeSheetCell = resolvedCell;
-  document.getElementById("activeCellLabel").textContent = merge ? getSheetMergeRangeLabel(merge) : resolvedCell;
-  document.querySelectorAll(".sheet-cell-input.active").forEach((input) => input.classList.remove("active"));
-  const activeInput = document.querySelector(`.sheet-cell-input[data-cell="${resolvedCell}"]`);
-  if (activeInput) activeInput.classList.add("active");
-  if (syncFormula) document.getElementById("formulaInput").value = getSheetRawValue(resolvedCell);
+
+  const activeLabel = document.getElementById("activeCellLabel");
+  if (activeLabel) activeLabel.textContent = merge ? getSheetMergeRangeLabel(merge) : resolvedCell;
+
+  document.querySelectorAll("#customSheetTable td.sheet-cell-selected").forEach((cell) => {
+    cell.classList.remove("sheet-cell-selected");
+    cell.setAttribute("aria-selected", "false");
+  });
+
+  const activeCellElement = document.querySelector(`#customSheetTable td[data-sheet-cell="${resolvedCell}"]`);
+  if (activeCellElement) {
+    activeCellElement.classList.add("sheet-cell-selected");
+    activeCellElement.setAttribute("aria-selected", "true");
+    if (shouldScroll) activeCellElement.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  const formulaInput = document.getElementById("formulaInput");
+  if (syncFormula && formulaInput && document.activeElement !== formulaInput) {
+    formulaInput.value = getSheetRawValue(resolvedCell);
+  }
+
   const linkCellInput = document.getElementById("sheetLinkCell");
   if (linkCellInput && document.activeElement !== linkCellInput) linkCellInput.value = resolvedCell;
+
+  const selectionStatus = document.getElementById("sheetStatusSelection");
+  if (selectionStatus) selectionStatus.textContent = `${merge ? getSheetMergeRangeLabel(merge) : resolvedCell} selected`;
+
   updateSheetSizeControls();
   updateSheetCurrencyButton();
   updateSheetMergeButton();
@@ -1836,16 +2257,13 @@ function setActiveSheetCell(cellKey, syncFormula) {
 }
 
 function updateActiveCellFromFormulaBar(event) {
-  if (!state.activeSheetCell) return;
+  if (!state.activeSheetCell || !state.customSheet) return;
   const value = event.target.value;
   const removedLink = removeSheetLinkForCell(state.activeSheetCell);
   setSheetRawValue(state.activeSheetCell, value);
-  if (removedLink) {
-    renderCustomSheet();
-    document.getElementById("formulaInput").value = value;
-  } else {
-    updateSheetFormulaResults();
-  }
+  setSheetSaveStatus("Unsaved changes", "pending");
+  updateSheetFormulaResults();
+  if (removedLink) renderSheetLinkSummary();
   scheduleCustomSheetSave();
 }
 
@@ -1922,7 +2340,7 @@ function updateSheetCurrencyButton() {
   const isLinked = Boolean(getSheetLinkForCell(state.activeSheetCell));
   const isCurrency = getEffectiveSheetCellFormat(state.activeSheetCell) === "currency";
   button.disabled = isLinked;
-  button.textContent = isLinked ? "RM linked" : isCurrency ? "Remove RM" : "RM format";
+  setSheetToolLabel(button, isLinked ? "RM linked" : isCurrency ? "Remove RM" : "RM format");
   button.classList.toggle("active-tool", isCurrency);
   button.setAttribute("aria-pressed", String(isCurrency));
   button.title = isLinked
@@ -2044,6 +2462,7 @@ async function linkDashboardValueToSheet() {
   input.value = target;
   await saveCustomSheetNow();
   renderCustomSheet();
+  closeSheetLinkDialog();
   showToast(`${getSheetLinkLabel(metric)} linked to ${target}.`);
 }
 
@@ -2058,6 +2477,7 @@ async function unlinkDashboardValueFromSheet() {
   }
   await saveCustomSheetNow();
   renderCustomSheet();
+  closeSheetLinkDialog();
   showToast(`${target} unlinked.`);
 }
 
@@ -2073,22 +2493,18 @@ function renderSheetLinkSummary() {
   if (!summary || !state.customSheet) return;
   const links = state.customSheet.links || [];
   if (!links.length) {
-    summary.textContent = "No linked cells";
+    summary.textContent = "No dashboard links";
+    summary.removeAttribute("title");
     return;
   }
-  summary.textContent = links
-    .map((link) => `${getSheetLinkLabel(link.metric)} → ${link.cell}`)
-    .join(" · ");
+  summary.textContent = `${links.length} linked cell${links.length === 1 ? "" : "s"}`;
+  summary.title = links.map((link) => `${getSheetLinkLabel(link.metric)} → ${link.cell}`).join(" · ");
 }
 
 function updateLinkedSheetDisplays() {
   if (!state.customSheet) return;
-  for (const link of state.customSheet.links || []) {
-    const input = document.querySelector(`.sheet-cell-input[data-cell="${link.cell}"]`);
-    if (input) input.value = formatMoney(getSheetLinkedMetricValue(link.metric));
-    const result = document.querySelector(`.sheet-cell-result[data-result-cell="${link.cell}"]`);
-    if (result) result.textContent = "";
-  }
+  updateSheetFormulaResults();
+  renderSheetLinkSummary();
 }
 
 function clampNumber(value, minimum, maximum) {
@@ -2214,10 +2630,10 @@ function applyRenderedSheetRowHeight(rowNumber, height) {
 
   table.querySelectorAll(`tbody td[data-sheet-row="${rowNumber}"]`).forEach((cell) => {
     cell.style.height = `${height}px`;
-    const wrap = cell.querySelector(".sheet-cell-wrap");
-    if (wrap) {
-      wrap.style.height = `${height}px`;
-      wrap.style.minHeight = `${height}px`;
+    const content = cell.querySelector(".js-sheet-cell");
+    if (content) {
+      content.style.height = `${height}px`;
+      content.style.minHeight = `${height}px`;
     }
   });
 }
@@ -2284,14 +2700,14 @@ function updateSheetMergeButton() {
   if (!button) return;
 
   if (state.sheetMergeStart) {
-    button.textContent = "Cancel merge";
+    setSheetToolLabel(button, "Cancel merge");
     button.classList.add("active-tool");
     button.setAttribute("aria-pressed", "true");
     return;
   }
 
   const merge = getSheetMergeForCell(state.activeSheetCell);
-  button.textContent = merge ? "Unmerge" : "Merge cells";
+  setSheetToolLabel(button, merge ? "Unmerge" : "Merge");
   button.classList.remove("active-tool");
   button.setAttribute("aria-pressed", "false");
 }
@@ -2497,14 +2913,29 @@ function finishSheetResize(event) {
   saveCustomSheetNow().catch((error) => console.error("Unable to save sheet size:", error));
 }
 
-function updateSheetFormulaResults() {
-  document.querySelectorAll(".sheet-cell-input[data-cell]").forEach((input) => {
-    const cellKey = input.dataset.cell;
-    const result = document.querySelector(`.sheet-cell-result[data-result-cell="${cellKey}"]`);
-    if (result) result.textContent = "";
+function updateRenderedSheetCell(cellElement, cellKey) {
+  if (!cellElement) return;
+  const valueElement = cellElement.querySelector(".js-sheet-cell-value");
+  if (!valueElement) return;
 
-    if (document.activeElement === input) return;
-    input.value = getSheetCellDisplayValue(cellKey);
+  const link = getSheetLinkForCell(cellKey);
+  const rawValue = link ? getSheetLinkFormula(link.metric) : getSheetStoredRawValue(cellKey);
+  const isFormula = !link && rawValue.trim().startsWith("=");
+  const effectiveFormat = getEffectiveSheetCellFormat(cellKey);
+  const numericValue = link || isFormula || tryParseSheetNumber(rawValue) !== null;
+  const displayValue = getSheetCellDisplayValue(cellKey);
+
+  valueElement.textContent = displayValue;
+  cellElement.classList.toggle("sheet-linked-cell", Boolean(link));
+  cellElement.classList.toggle("sheet-formula-cell", isFormula);
+  cellElement.classList.toggle("sheet-currency-cell", effectiveFormat === "currency");
+  cellElement.classList.toggle("sheet-number-cell", numericValue);
+  cellElement.classList.toggle("sheet-empty-cell", displayValue === "");
+}
+
+function updateSheetFormulaResults() {
+  document.querySelectorAll("#customSheetTable td[data-sheet-cell]").forEach((cellElement) => {
+    updateRenderedSheetCell(cellElement, cellElement.dataset.sheetCell);
   });
 }
 
@@ -2513,9 +2944,12 @@ function scheduleCustomSheetSave() {
   state.sheetSaveTimer = setTimeout(() => saveCustomSheetNow(), 350);
 }
 
-async function saveCustomSheetNow() {
+async function saveCustomSheetNow(options = {}) {
   if (!state.customSheet) return;
+  setSheetSaveStatus("Saving...", "saving");
   await BudgetDB.saveCustomSheet(state.customSheet);
+  if (options.recordHistory !== false) commitSheetHistory();
+  setSheetSaveStatus("Saved locally", "saved");
 }
 
 async function addCustomSheetRow() {
@@ -2571,7 +3005,8 @@ async function clearCustomSheetData() {
   if (!confirmed) return;
 
   await BudgetDB.clearCustomSheet();
-  state.customSheet = await BudgetDB.getCustomSheet();
+  state.customSheet = normaliseCustomSheet(await BudgetDB.getCustomSheet());
+  commitSheetHistory();
   renderCustomSheet();
   showToast("Custom sheet cleared.");
 }
