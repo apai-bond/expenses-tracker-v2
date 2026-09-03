@@ -11,6 +11,12 @@ const state = {
   customSheet: null,
   latestSummary: null,
   activeSheetCell: "A1",
+  sheetSelectionStart: "A1",
+  sheetSelectionEnd: "A1",
+  sheetRangeSelecting: false,
+  sheetZoom: 1,
+  sheetPinch: null,
+  sheetSuppressClickUntil: 0,
   sheetSaveTimer: null,
   sheetResize: null,
   sheetMergeStart: null,
@@ -36,6 +42,9 @@ const state = {
 
 const SHEET_MAX_ROWS = 120;
 const SHEET_MAX_COLUMNS = 52; // A through AZ
+const SHEET_ZOOM_MIN = 0.65;
+const SHEET_ZOOM_MAX = 1.6;
+const SHEET_ZOOM_STORAGE_KEY = "pocket-budget-sheet-zoom";
 
 const SHEET_SIZE_LIMITS = {
   minColumn: 48,
@@ -75,6 +84,7 @@ document.addEventListener("DOMContentLoaded", initializeApp);
 
 async function initializeApp() {
   initializeTheme();
+  initializeSheetZoom();
   bindEvents();
 
   try {
@@ -195,6 +205,7 @@ function bindEvents() {
   document.getElementById("sheetUndoButton").addEventListener("click", undoSheetChange);
   document.getElementById("sheetRedoButton").addEventListener("click", redoSheetChange);
   document.getElementById("sheetEditButton").addEventListener("click", focusSheetFormulaEditor);
+  document.getElementById("sheetRangeButton").addEventListener("click", toggleSheetRangeSelectionMode);
   document.getElementById("sheetFocusButton").addEventListener("click", () => setSheetFocusMode(!state.sheetFocusMode));
   document.getElementById("sheetFormulaApplyButton").addEventListener("click", applySheetFormulaEdit);
 
@@ -239,6 +250,12 @@ function bindEvents() {
   sheetTable.addEventListener("keydown", handleSheetGridKeyDown);
   sheetTable.addEventListener("pointerdown", handleSheetMergePointerDown);
   sheetTable.addEventListener("pointerdown", handleSheetResizePointerDown);
+
+  const sheetGrid = document.getElementById("sheetGridContainer");
+  sheetGrid.addEventListener("touchstart", handleSheetPinchStart, { passive: false });
+  sheetGrid.addEventListener("touchmove", handleSheetPinchMove, { passive: false });
+  sheetGrid.addEventListener("touchend", handleSheetPinchEnd, { passive: true });
+  sheetGrid.addEventListener("touchcancel", handleSheetPinchEnd, { passive: true });
 
   window.addEventListener("resize", debounce(() => {
     renderDashboard();
@@ -373,7 +390,7 @@ async function loadPythonEngine() {
       indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/"
     });
 
-    const response = await fetch("calculations.py?v=29", { cache: "no-cache" });
+    const response = await fetch("calculations.py?v=31", { cache: "no-cache" });
     if (!response.ok) {
       throw new Error("Could not load calculations.py");
     }
@@ -1585,6 +1602,87 @@ async function resetAllData() {
   showView("home");
 }
 
+function initializeSheetZoom() {
+  const stored = Number(safeStorageGet(SHEET_ZOOM_STORAGE_KEY));
+  state.sheetZoom = Number.isFinite(stored)
+    ? Math.min(Math.max(stored, SHEET_ZOOM_MIN), SHEET_ZOOM_MAX)
+    : 1;
+}
+
+function applySheetZoom(options = {}) {
+  const table = document.getElementById("customSheetTable");
+  if (!table) return;
+  const zoom = Math.min(Math.max(Number(state.sheetZoom) || 1, SHEET_ZOOM_MIN), SHEET_ZOOM_MAX);
+  state.sheetZoom = zoom;
+  table.style.zoom = String(zoom);
+  table.dataset.sheetZoom = String(Math.round(zoom * 100));
+  updateSheetDimensionsStatus();
+
+  if (options.persist) safeStorageSet(SHEET_ZOOM_STORAGE_KEY, String(zoom));
+}
+
+function getSheetTouchDistance(touchA, touchB) {
+  return Math.hypot(touchB.clientX - touchA.clientX, touchB.clientY - touchA.clientY);
+}
+
+function getSheetTouchCenter(touchA, touchB) {
+  return {
+    x: (touchA.clientX + touchB.clientX) / 2,
+    y: (touchA.clientY + touchB.clientY) / 2
+  };
+}
+
+function handleSheetPinchStart(event) {
+  if (event.touches.length !== 2) return;
+  const grid = document.getElementById("sheetGridContainer");
+  if (!grid) return;
+  const distance = getSheetTouchDistance(event.touches[0], event.touches[1]);
+  if (!distance) return;
+  const center = getSheetTouchCenter(event.touches[0], event.touches[1]);
+  state.sheetPinch = {
+    startDistance: distance,
+    startZoom: state.sheetZoom,
+    lastZoom: state.sheetZoom,
+    center
+  };
+  event.preventDefault();
+}
+
+function handleSheetPinchMove(event) {
+  if (!state.sheetPinch || event.touches.length !== 2) return;
+  const grid = document.getElementById("sheetGridContainer");
+  if (!grid) return;
+  event.preventDefault();
+
+  const distance = getSheetTouchDistance(event.touches[0], event.touches[1]);
+  if (!distance) return;
+  const center = getSheetTouchCenter(event.touches[0], event.touches[1]);
+  const rect = grid.getBoundingClientRect();
+  const oldZoom = state.sheetZoom;
+  const contentX = (center.x - rect.left + grid.scrollLeft) / Math.max(oldZoom, 0.01);
+  const contentY = (center.y - rect.top + grid.scrollTop) / Math.max(oldZoom, 0.01);
+  const nextZoom = Math.min(
+    Math.max(state.sheetPinch.startZoom * (distance / state.sheetPinch.startDistance), SHEET_ZOOM_MIN),
+    SHEET_ZOOM_MAX
+  );
+
+  if (Math.abs(nextZoom - oldZoom) < 0.005) return;
+  state.sheetZoom = nextZoom;
+  applySheetZoom();
+  grid.scrollLeft = Math.max(0, contentX * nextZoom - (center.x - rect.left));
+  grid.scrollTop = Math.max(0, contentY * nextZoom - (center.y - rect.top));
+  state.sheetPinch.lastZoom = nextZoom;
+  state.sheetPinch.center = center;
+}
+
+function handleSheetPinchEnd(event) {
+  if (!state.sheetPinch || event.touches.length >= 2) return;
+  state.sheetSuppressClickUntil = Date.now() + 280;
+  state.sheetPinch = null;
+  applySheetZoom({ persist: true });
+  showToast(`Sheet zoom ${Math.round(state.sheetZoom * 100)}%.`);
+}
+
 function normaliseSheetMerge(source, rows, cols) {
   if (!source || typeof source !== "object") return null;
 
@@ -1850,7 +1948,8 @@ function renderCustomSheet() {
   table.setAttribute("aria-colcount", String(sheet.cols));
   table.innerHTML = `${headerHtml}<tbody>${bodyHtml}</tbody>`;
 
-  setActiveSheetCell(state.activeSheetCell || "A1", true, false);
+  setActiveSheetCell(state.activeSheetCell || "A1", true, false, { preserveSelection: true });
+  applySheetZoom();
   updateSheetSizeControls();
   updateSheetMergeSelectionVisual();
   updateSheetHistoryButtons();
@@ -1865,6 +1964,7 @@ function renderCustomSheet() {
 
 function handleSheetCellClick(event) {
   if (event.target.closest?.(".sheet-resize-handle")) return;
+  if (Date.now() < state.sheetSuppressClickUntil) return;
   const cell = event.target.closest?.("td[data-sheet-cell]");
   if (!cell || state.sheetMergeStart) return;
 
@@ -1874,9 +1974,20 @@ function handleSheetCellClick(event) {
   state.sheetLastTapCell = cellKey;
   state.sheetLastTapAt = now;
 
-  setActiveSheetCell(cellKey, true, false);
+  if (state.sheetRangeSelecting) {
+    completeSheetRangeSelection(cellKey);
+    document.getElementById("customSheetTable")?.focus({ preventScroll: true });
+    return;
+  }
+
+  if (event.shiftKey) {
+    extendSheetSelectionTo(cellKey, true);
+  } else {
+    setActiveSheetCell(cellKey, true, false);
+  }
+
   document.getElementById("customSheetTable")?.focus({ preventScroll: true });
-  if (isSecondTap) focusSheetFormulaEditor();
+  if (isSecondTap && !event.shiftKey) focusSheetFormulaEditor();
 }
 
 function handleSheetCellDoubleClick(event) {
@@ -1956,18 +2067,18 @@ function handleSheetGridKeyDown(event) {
     return;
   }
 
-  if (event.key === "ArrowUp") {
+  const directionMap = {
+    ArrowUp: [-1, 0],
+    ArrowDown: [1, 0],
+    ArrowLeft: [0, -1],
+    ArrowRight: [0, 1]
+  };
+
+  if (directionMap[event.key]) {
     event.preventDefault();
-    moveActiveSheetCell(-1, 0, true);
-  } else if (event.key === "ArrowDown") {
-    event.preventDefault();
-    moveActiveSheetCell(1, 0, true);
-  } else if (event.key === "ArrowLeft") {
-    event.preventDefault();
-    moveActiveSheetCell(0, -1, true);
-  } else if (event.key === "ArrowRight") {
-    event.preventDefault();
-    moveActiveSheetCell(0, 1, true);
+    const [rowDelta, colDelta] = directionMap[event.key];
+    if (event.shiftKey) extendSheetSelectionBy(rowDelta, colDelta);
+    else moveActiveSheetCell(rowDelta, colDelta, true);
   } else if (event.key === "Tab") {
     event.preventDefault();
     moveActiveSheetCell(0, event.shiftKey ? -1 : 1, true);
@@ -1982,6 +2093,10 @@ function handleSheetGridKeyDown(event) {
       state.sheetMergeStart = null;
       updateSheetMergeButton();
       updateSheetMergeSelectionVisual();
+    } else if (state.sheetRangeSelecting || !isSheetSelectionSingle()) {
+      state.sheetRangeSelecting = false;
+      setActiveSheetCell(state.activeSheetCell || "A1", true, false);
+      updateSheetRangeButton();
     } else if (state.sheetFocusMode) {
       setSheetFocusMode(false);
     }
@@ -2002,6 +2117,7 @@ function setSheetFocusMode(enabled) {
   const button = document.getElementById("sheetFocusButton");
   if (button) {
     button.setAttribute("aria-pressed", String(state.sheetFocusMode));
+    button.title = state.sheetFocusMode ? "Exit spreadsheet focus mode" : "Enter spreadsheet focus mode";
     setSheetToolLabel(button, state.sheetFocusMode ? "Exit" : "Focus");
   }
   if (state.sheetFocusMode) {
@@ -2027,7 +2143,7 @@ function setSheetSaveStatus(message, status = "saved") {
 function updateSheetDimensionsStatus() {
   const element = document.getElementById("sheetDimensionsStatus");
   if (!element || !state.customSheet) return;
-  element.textContent = `${state.customSheet.rows} rows × ${state.customSheet.cols} columns`;
+  element.textContent = `${state.customSheet.rows} rows × ${state.customSheet.cols} columns · ${Math.round(state.sheetZoom * 100)}%`;
 }
 
 function getSheetHistorySnapshot() {
@@ -2121,26 +2237,43 @@ async function redoSheetChange() {
 
 async function clearSelectedSheetCell() {
   if (!state.customSheet || !state.activeSheetCell) return;
-  const target = state.activeSheetCell;
-  removeSheetLinkForCell(target);
-  setSheetRawValue(target, "");
-  setSheetCellFormat(target, "general");
+  const targets = getUniqueSelectedSheetAnchors();
+  if (!targets.length) return;
+
+  for (const target of targets) {
+    removeSheetLinkForCell(target);
+    setSheetRawValue(target, "");
+    setSheetCellFormat(target, "general");
+  }
+
   await saveCustomSheetNow();
   updateSheetFormulaResults();
   renderSheetLinkSummary();
   document.getElementById("formulaInput").value = "";
-  showToast(`${target} cleared.`);
+  showToast(`${getSheetSelectionLabel()} cleared.`);
 }
 
 async function copySelectedSheetCell() {
   if (!state.activeSheetCell) return;
-  const text = getSheetRawValue(state.activeSheetCell);
+  const range = getSheetSelectionRange();
+  const lines = [];
+  for (let row = range.startRow; row <= range.endRow; row += 1) {
+    const values = [];
+    for (let col = range.startCol; col <= range.endCol; col += 1) {
+      const key = `${columnIndexToName(col)}${row}`;
+      const merge = getSheetMergeForCell(key);
+      if (merge && getSheetMergeAnchorKey(merge) !== key) values.push("");
+      else values.push(getSheetRawValue(key));
+    }
+    lines.push(values.join("\t"));
+  }
+  const text = lines.join("\n");
   state.sheetClipboardText = text;
   try {
     await navigator.clipboard.writeText(text);
-    showToast(`${state.activeSheetCell} copied.`);
+    showToast(`${getSheetSelectionLabel()} copied.`);
   } catch (_) {
-    showToast(`${state.activeSheetCell} copied inside Pocket Budget.`);
+    showToast(`${getSheetSelectionLabel()} copied inside Pocket Budget.`);
   }
 }
 
@@ -2218,42 +2351,175 @@ function handleSheetCellInput(event) {
   scheduleCustomSheetSave();
 }
 
-function setActiveSheetCell(cellKey, syncFormula, shouldScroll = false) {
-  if (!cellKey || !state.customSheet) return;
-  const merge = getSheetMergeForCell(cellKey);
-  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : String(cellKey).toUpperCase();
-  state.activeSheetCell = resolvedCell;
+function getSheetSelectionRange() {
+  const start = parseCellKey(state.sheetSelectionStart || state.activeSheetCell || "A1") || { row: 1, col: 1 };
+  const end = parseCellKey(state.sheetSelectionEnd || state.activeSheetCell || "A1") || start;
+  return {
+    startRow: Math.min(start.row, end.row),
+    startCol: Math.min(start.col, end.col),
+    endRow: Math.max(start.row, end.row),
+    endCol: Math.max(start.col, end.col)
+  };
+}
 
-  const activeLabel = document.getElementById("activeCellLabel");
-  if (activeLabel) activeLabel.textContent = merge ? getSheetMergeRangeLabel(merge) : resolvedCell;
+function getSheetSelectionLabel() {
+  const range = getSheetSelectionRange();
+  const start = `${columnIndexToName(range.startCol)}${range.startRow}`;
+  const end = `${columnIndexToName(range.endCol)}${range.endRow}`;
+  return start === end ? start : `${start}:${end}`;
+}
 
-  document.querySelectorAll("#customSheetTable td.sheet-cell-selected").forEach((cell) => {
-    cell.classList.remove("sheet-cell-selected");
-    cell.setAttribute("aria-selected", "false");
+function getSheetSelectionCellCount() {
+  const range = getSheetSelectionRange();
+  return (range.endRow - range.startRow + 1) * (range.endCol - range.startCol + 1);
+}
+
+function isSheetSelectionSingle() {
+  return getSheetSelectionCellCount() === 1;
+}
+
+function getUniqueSelectedSheetAnchors() {
+  const range = getSheetSelectionRange();
+  const anchors = new Set();
+  for (let row = range.startRow; row <= range.endRow; row += 1) {
+    for (let col = range.startCol; col <= range.endCol; col += 1) {
+      const key = `${columnIndexToName(col)}${row}`;
+      const merge = getSheetMergeForCell(key);
+      anchors.add(merge ? getSheetMergeAnchorKey(merge) : key);
+    }
+  }
+  return [...anchors];
+}
+
+function sheetCellRect(cellElement) {
+  const key = cellElement?.dataset?.sheetCell;
+  const parsed = parseCellKey(key);
+  if (!parsed) return null;
+  const merge = getSheetMergeForCell(key);
+  return merge || { startRow: parsed.row, endRow: parsed.row, startCol: parsed.col, endCol: parsed.col };
+}
+
+function updateSheetSelectionVisual() {
+  const range = getSheetSelectionRange();
+  const activeKey = String(state.activeSheetCell || "A1").toUpperCase();
+
+  document.querySelectorAll("#customSheetTable td[data-sheet-cell]").forEach((cell) => {
+    const rect = sheetCellRect(cell);
+    const selected = rect && sheetRangesOverlap(rect, range);
+    const isActive = cell.dataset.sheetCell === activeKey;
+    cell.classList.toggle("sheet-cell-range-selected", Boolean(selected));
+    cell.classList.toggle("sheet-cell-selected", isActive);
+    cell.setAttribute("aria-selected", String(Boolean(selected)));
   });
 
-  const activeCellElement = document.querySelector(`#customSheetTable td[data-sheet-cell="${resolvedCell}"]`);
-  if (activeCellElement) {
-    activeCellElement.classList.add("sheet-cell-selected");
-    activeCellElement.setAttribute("aria-selected", "true");
-    if (shouldScroll) activeCellElement.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }
+  const label = getSheetSelectionLabel();
+  const count = getSheetSelectionCellCount();
+  const activeLabel = document.getElementById("activeCellLabel");
+  if (activeLabel) activeLabel.textContent = label;
+  const selectionStatus = document.getElementById("sheetStatusSelection");
+  if (selectionStatus) selectionStatus.textContent = count === 1 ? `${label} selected` : `${label} · ${count} cells`;
+}
+
+function setSheetSelection(startKey, endKey, syncFormula = true, shouldScroll = false) {
+  if (!state.customSheet) return;
+  const startParsed = parseCellKey(startKey);
+  const endParsed = parseCellKey(endKey);
+  if (!startParsed || !endParsed) return;
+
+  const safeStart = `${columnIndexToName(Math.min(startParsed.col, state.customSheet.cols))}${Math.min(startParsed.row, state.customSheet.rows)}`;
+  const safeEnd = `${columnIndexToName(Math.min(endParsed.col, state.customSheet.cols))}${Math.min(endParsed.row, state.customSheet.rows)}`;
+  const startMerge = getSheetMergeForCell(safeStart);
+  const activeKey = startMerge ? getSheetMergeAnchorKey(startMerge) : safeStart;
+
+  state.activeSheetCell = activeKey;
+  state.sheetSelectionStart = activeKey;
+  state.sheetSelectionEnd = safeEnd;
+  updateSheetSelectionVisual();
 
   const formulaInput = document.getElementById("formulaInput");
   if (syncFormula && formulaInput && document.activeElement !== formulaInput) {
-    formulaInput.value = getSheetRawValue(resolvedCell);
+    formulaInput.value = getSheetRawValue(activeKey);
   }
 
   const linkCellInput = document.getElementById("sheetLinkCell");
-  if (linkCellInput && document.activeElement !== linkCellInput) linkCellInput.value = resolvedCell;
+  if (linkCellInput && document.activeElement !== linkCellInput) linkCellInput.value = activeKey;
 
-  const selectionStatus = document.getElementById("sheetStatusSelection");
-  if (selectionStatus) selectionStatus.textContent = `${merge ? getSheetMergeRangeLabel(merge) : resolvedCell} selected`;
+  const activeCellElement = document.querySelector(`#customSheetTable td[data-sheet-cell="${activeKey}"]`);
+  if (activeCellElement && shouldScroll) activeCellElement.scrollIntoView({ block: "nearest", inline: "nearest" });
 
   updateSheetSizeControls();
   updateSheetCurrencyButton();
   updateSheetMergeButton();
   updateSheetMergeSelectionVisual();
+  updateSheetRangeButton();
+}
+
+function setActiveSheetCell(cellKey, syncFormula, shouldScroll = false, options = {}) {
+  if (!cellKey || !state.customSheet) return;
+  const merge = getSheetMergeForCell(cellKey);
+  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : String(cellKey).toUpperCase();
+
+  if (options.preserveSelection) {
+    state.activeSheetCell = resolvedCell;
+    if (!state.sheetSelectionStart) state.sheetSelectionStart = resolvedCell;
+    if (!state.sheetSelectionEnd) state.sheetSelectionEnd = resolvedCell;
+    setSheetSelection(state.sheetSelectionStart, state.sheetSelectionEnd, syncFormula, shouldScroll);
+  } else {
+    state.sheetRangeSelecting = false;
+    setSheetSelection(resolvedCell, resolvedCell, syncFormula, shouldScroll);
+  }
+}
+
+function updateSheetRangeButton() {
+  const button = document.getElementById("sheetRangeButton");
+  if (!button) return;
+  button.classList.toggle("active-tool", state.sheetRangeSelecting || !isSheetSelectionSingle());
+  button.setAttribute("aria-pressed", String(state.sheetRangeSelecting));
+  setSheetToolLabel(button, state.sheetRangeSelecting ? "Tap end" : isSheetSelectionSingle() ? "Range" : getSheetSelectionLabel());
+  button.title = state.sheetRangeSelecting
+    ? `Tap the opposite corner from ${state.sheetSelectionStart}`
+    : "Select a rectangular cell range";
+}
+
+function toggleSheetRangeSelectionMode() {
+  if (!state.customSheet) return;
+  if (state.sheetRangeSelecting) {
+    state.sheetRangeSelecting = false;
+    setActiveSheetCell(state.activeSheetCell || "A1", true, false);
+    showToast("Range selection cancelled.");
+    return;
+  }
+
+  state.sheetRangeSelecting = true;
+  state.sheetSelectionStart = state.activeSheetCell || "A1";
+  state.sheetSelectionEnd = state.activeSheetCell || "A1";
+  updateSheetSelectionVisual();
+  updateSheetRangeButton();
+  showToast(`Start ${state.sheetSelectionStart} selected. Tap the opposite corner.`);
+}
+
+function completeSheetRangeSelection(endKey) {
+  if (!state.customSheet) return;
+  state.sheetSelectionEnd = String(endKey || state.activeSheetCell || "A1").toUpperCase();
+  state.sheetRangeSelecting = false;
+  setSheetSelection(state.sheetSelectionStart || state.activeSheetCell || "A1", state.sheetSelectionEnd, true, true);
+  showToast(`${getSheetSelectionLabel()} selected.`);
+}
+
+function extendSheetSelectionTo(endKey, shouldScroll = false) {
+  if (!state.customSheet) return;
+  if (isSheetSelectionSingle()) state.sheetSelectionStart = state.activeSheetCell || "A1";
+  state.sheetSelectionEnd = String(endKey).toUpperCase();
+  state.sheetRangeSelecting = false;
+  setSheetSelection(state.sheetSelectionStart, state.sheetSelectionEnd, true, shouldScroll);
+}
+
+function extendSheetSelectionBy(rowDelta, colDelta) {
+  if (!state.customSheet) return;
+  const end = parseCellKey(state.sheetSelectionEnd || state.activeSheetCell || "A1") || { row: 1, col: 1 };
+  const nextRow = Math.min(Math.max(end.row + rowDelta, 1), state.customSheet.rows);
+  const nextCol = Math.min(Math.max(end.col + colDelta, 1), state.customSheet.cols);
+  extendSheetSelectionTo(`${columnIndexToName(nextCol)}${nextRow}`, true);
 }
 
 function updateActiveCellFromFormulaBar(event) {
@@ -2337,32 +2603,38 @@ function updateSheetCurrencyButton() {
   const button = document.getElementById("sheetCurrencyButton");
   if (!button || !state.activeSheetCell) return;
 
-  const isLinked = Boolean(getSheetLinkForCell(state.activeSheetCell));
-  const isCurrency = getEffectiveSheetCellFormat(state.activeSheetCell) === "currency";
-  button.disabled = isLinked;
-  setSheetToolLabel(button, isLinked ? "RM linked" : isCurrency ? "Remove RM" : "RM format");
-  button.classList.toggle("active-tool", isCurrency);
-  button.setAttribute("aria-pressed", String(isCurrency));
-  button.title = isLinked
-    ? "Dashboard-linked values always use RM formatting"
-    : isCurrency ? "Show this cell as a plain number" : "Show this cell as Malaysian Ringgit";
+  const targets = getUniqueSelectedSheetAnchors();
+  const editableTargets = targets.filter((cell) => !getSheetLinkForCell(cell));
+  const linkedCount = targets.length - editableTargets.length;
+  const allCurrency = editableTargets.length > 0 && editableTargets.every((cell) => getEffectiveSheetCellFormat(cell) === "currency");
+
+  button.disabled = editableTargets.length === 0;
+  setSheetToolLabel(button, button.disabled ? "RM linked" : allCurrency ? "Remove RM" : "RM format");
+  button.classList.toggle("active-tool", allCurrency);
+  button.setAttribute("aria-pressed", String(allCurrency));
+  button.title = linkedCount && editableTargets.length
+    ? "Apply RM formatting to the editable cells in the selected range"
+    : button.disabled
+      ? "Dashboard-linked values always use RM formatting"
+      : allCurrency ? "Show selected cells as plain numbers" : "Show selected cells as Malaysian Ringgit";
 }
 
 async function toggleSheetCurrencyFormat() {
   if (!state.customSheet || !state.activeSheetCell) return;
-  if (getSheetLinkForCell(state.activeSheetCell)) {
+  const targets = getUniqueSelectedSheetAnchors().filter((cell) => !getSheetLinkForCell(cell));
+  if (!targets.length) {
     showToast("Dashboard-linked cells already use RM formatting.");
     return;
   }
 
-  const currentFormat = getEffectiveSheetCellFormat(state.activeSheetCell);
-  const nextFormat = currentFormat === "currency" ? "number" : "currency";
-  setSheetCellFormat(state.activeSheetCell, nextFormat);
+  const allCurrency = targets.every((cell) => getEffectiveSheetCellFormat(cell) === "currency");
+  const nextFormat = allCurrency ? "number" : "currency";
+  targets.forEach((cell) => setSheetCellFormat(cell, nextFormat));
   await saveCustomSheetNow();
   renderCustomSheet();
   showToast(nextFormat === "currency"
-    ? `${state.activeSheetCell} now displays RM currency.`
-    : `${state.activeSheetCell} now displays a plain number.`);
+    ? `${getSheetSelectionLabel()} now displays RM currency.`
+    : `${getSheetSelectionLabel()} now displays plain numbers.`);
 }
 
 function setSheetRawValue(cellKey, value) {
@@ -2707,7 +2979,8 @@ function updateSheetMergeButton() {
   }
 
   const merge = getSheetMergeForCell(state.activeSheetCell);
-  setSheetToolLabel(button, merge ? "Unmerge" : "Merge");
+  const rangeSelected = !isSheetSelectionSingle();
+  setSheetToolLabel(button, merge && !rangeSelected ? "Unmerge" : rangeSelected ? "Merge range" : "Merge");
   button.classList.remove("active-tool");
   button.setAttribute("aria-pressed", "false");
 }
@@ -2730,6 +3003,15 @@ async function toggleSheetMergeAction() {
     updateSheetMergeButton();
     updateSheetMergeSelectionVisual();
     showToast("Merge selection cancelled.");
+    return;
+  }
+
+  const selection = getSheetSelectionRange();
+  if (!isSheetSelectionSingle()) {
+    await completeSheetMerge(
+      `${columnIndexToName(selection.startCol)}${selection.startRow}`,
+      `${columnIndexToName(selection.endCol)}${selection.endRow}`
+    );
     return;
   }
 
@@ -2818,6 +3100,8 @@ async function completeSheetMerge(startKey, endKey) {
   state.customSheet.merges.push(merge);
   state.sheetMergeStart = null;
   state.activeSheetCell = anchorKey;
+  state.sheetSelectionStart = anchorKey;
+  state.sheetSelectionEnd = anchorKey;
   await saveCustomSheetNow();
   renderCustomSheet();
   showToast(`${getSheetMergeRangeLabel(merge)} merged.`);
@@ -2834,6 +3118,8 @@ async function unmergeSheetRange(merge) {
   ));
   state.sheetMergeStart = null;
   state.activeSheetCell = getSheetMergeAnchorKey(merge);
+  state.sheetSelectionStart = state.activeSheetCell;
+  state.sheetSelectionEnd = state.activeSheetCell;
   await saveCustomSheetNow();
   renderCustomSheet();
   showToast(`${label} unmerged.`);
@@ -2887,7 +3173,7 @@ function handleSheetResizePointerMove(event) {
   if (!resize || event.pointerId !== resize.pointerId) return;
   event.preventDefault();
   const currentPosition = resize.type === "column" ? event.clientX : event.clientY;
-  const newSize = resize.startSize + currentPosition - resize.startPosition;
+  const newSize = resize.startSize + (currentPosition - resize.startPosition) / Math.max(state.sheetZoom, 0.01);
 
   if (resize.type === "column") {
     setSheetColumnWidth(resize.key, newSize, false);

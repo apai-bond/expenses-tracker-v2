@@ -3243,3 +3243,98 @@ body.sheet-focus-mode .offline-sheet-workspace {
   display: flex;
   flex-direction: column;
 }
+
+/* Version 31: advanced offline spreadsheet selection, focus landscape, and pinch zoom */
+.sheet-focus-exit-icon {
+  display: none;
+}
+
+#sheetFocusButton[aria-pressed="true"] .sheet-focus-enter-icon {
+  display: none;
+}
+
+#sheetFocusButton[aria-pressed="true"] .sheet-focus-exit-icon {
+  display: block;
+}
+
+.custom-sheet-table td.sheet-cell-range-selected .js-sheet-cell {
+  background: color-mix(in srgb, var(--primary-soft) 42%, transparent);
+}
+
+.custom-sheet-table td.sheet-cell-range-selected {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 72%, var(--line));
+}
+
+.custom-sheet-table td.sheet-cell-range-selected.sheet-cell-selected {
+  z-index: 4;
+  box-shadow: inset 0 0 0 2px var(--primary), 0 0 0 1px var(--surface);
+}
+
+#sheetRangeButton.active-tool {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--line));
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.offline-sheet-grid {
+  touch-action: pan-x pan-y;
+}
+
+.custom-sheet-table {
+  transform-origin: 0 0;
+}
+
+@media (orientation: landscape) {
+  body.sheet-focus-mode .offline-sheet-header,
+  body.sheet-focus-mode .offline-sheet-statusbar {
+    display: none !important;
+  }
+
+  body.sheet-focus-mode .offline-sheet-workspace {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  body.sheet-focus-mode .offline-sheet-toolbar {
+    min-height: 44px;
+    padding: 4px max(6px, env(safe-area-inset-left)) 4px max(6px, env(safe-area-inset-right));
+    gap: 3px;
+  }
+
+  body.sheet-focus-mode .sheet-tool-button {
+    min-width: 42px;
+    min-height: 38px;
+    padding: 4px 6px;
+    border-radius: 9px;
+  }
+
+  body.sheet-focus-mode .sheet-tool-button svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  body.sheet-focus-mode .sheet-tool-text-icon {
+    height: 19px;
+    font-size: 0.7rem;
+  }
+
+  body.sheet-focus-mode .sheet-tool-label {
+    display: none;
+  }
+
+  body.sheet-focus-mode .offline-formula-bar {
+    min-height: 43px;
+    padding-block: 4px;
+  }
+
+  body.sheet-focus-mode .sheet-name-box,
+  body.sheet-focus-mode .formula-symbol,
+  body.sheet-focus-mode .offline-formula-bar input,
+  body.sheet-focus-mode .formula-apply-button {
+    min-height: 34px;
+  }
+
+  body.sheet-focus-mode .offline-sheet-grid {
+    height: auto;
+    min-height: 0;
+  }
+}

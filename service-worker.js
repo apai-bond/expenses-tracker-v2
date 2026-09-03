@@ -1,22 +1,22 @@
 "use strict";
 
-const CACHE_NAME = "pocket-budget-v29-offline-javascript-sheet";
+const CACHE_NAME = "pocket-budget-v31-advanced-offline-sheet";
 const LOCAL_ASSETS = [
   "./",
   "index.html",
-  "styles.css?v=29",
-  "cycle.js?v=29",
-  "db.js?v=29",
-  "backup-crypto.js?v=29",
-  "app.js?v=29",
-  "calculations.py?v=29",
-  "manifest.webmanifest?v=29",
-  "icons/icon-192.png?v=29",
-  "icons/icon-512.png?v=29",
-  "icons/icon-1024.png?v=29",
-  "icons/apple-touch-icon.png?v=29",
-  "icons/favicon.svg?v=29",
-  "icons/app-icon.svg?v=29"
+  "styles.css?v=31",
+  "cycle.js?v=31",
+  "db.js?v=31",
+  "backup-crypto.js?v=31",
+  "app.js?v=31",
+  "calculations.py?v=31",
+  "manifest.webmanifest?v=31",
+  "icons/icon-192.png?v=31",
+  "icons/icon-512.png?v=31",
+  "icons/icon-1024.png?v=31",
+  "icons/apple-touch-icon.png?v=31",
+  "icons/favicon.svg?v=31",
+  "icons/app-icon.svg?v=31"
 ];
 
 self.addEventListener("install", (event) => {

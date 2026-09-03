@@ -24,15 +24,15 @@
     })();
   </script>
 
-  <link rel="manifest" href="manifest.webmanifest?v=29">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=29">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=29">
-  <link rel="stylesheet" href="styles.css?v=29">
+  <link rel="manifest" href="manifest.webmanifest?v=31">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=31">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=31">
+  <link rel="stylesheet" href="styles.css?v=31">
 
-  <script src="cycle.js?v=29" defer></script>
-  <script src="db.js?v=29" defer></script>
-  <script src="backup-crypto.js?v=29" defer></script>
-  <script src="app.js?v=29" defer></script>
+  <script src="cycle.js?v=31" defer></script>
+  <script src="db.js?v=31" defer></script>
+  <script src="backup-crypto.js?v=31" defer></script>
+  <script src="app.js?v=31" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -242,12 +242,6 @@
                 </svg>
                 <span>Info</span>
               </button>
-              <button id="sheetFocusButton" class="sheet-header-button" type="button" aria-pressed="false">
-                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M8 3H3v5"></path><path d="m3 3 6 6"></path><path d="M16 3h5v5"></path><path d="m21 3-6 6"></path><path d="M8 21H3v-5"></path><path d="m3 21 6-6"></path><path d="M16 21h5v-5"></path><path d="m21 21-6-6"></path>
-                </svg>
-                <span class="sheet-tool-label">Focus</span>
-              </button>
             </div>
           </header>
 
@@ -260,9 +254,18 @@
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 7 5 5-5 5"></path><path d="M20 12h-9a7 7 0 0 0-7 7"></path></svg>
               <span class="sheet-tool-label">Redo</span>
             </button>
+            <button id="sheetFocusButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Enter spreadsheet focus mode">
+              <svg class="sheet-focus-enter-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5"></path><path d="m3 3 6 6"></path><path d="M16 3h5v5"></path><path d="m21 3-6 6"></path><path d="M8 21H3v-5"></path><path d="m3 21 6-6"></path><path d="M16 21h5v-5"></path><path d="m21 21-6-6"></path></svg>
+              <svg class="sheet-focus-exit-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9H4V4"></path><path d="M4 9 9 4"></path><path d="M15 9h5V4"></path><path d="m20 9-5-5"></path><path d="M9 15H4v5"></path><path d="m4 15 5 5"></path><path d="M15 15h5v5"></path><path d="m20 15-5 5"></path></svg>
+              <span class="sheet-tool-label">Focus</span>
+            </button>
             <button id="sheetEditButton" class="sheet-tool-button primary-tool" type="button" title="Edit selected cell">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>
               <span class="sheet-tool-label">Edit</span>
+            </button>
+            <button id="sheetRangeButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Select a rectangular cell range">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2"></rect><path d="M8 8h3v3H8z"></path><path d="M13 13h3v3h-3z"></path></svg>
+              <span class="sheet-tool-label">Range</span>
             </button>
             <button id="sheetCopyButton" class="sheet-tool-button" type="button" title="Copy selected cell">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -361,7 +364,7 @@
           <footer class="offline-sheet-statusbar" aria-live="polite">
             <span id="sheetStatusSelection">A1 selected</span>
             <span id="sheetLinkSummary">No dashboard links</span>
-            <span id="sheetDimensionsStatus">20 rows × 6 columns</span>
+            <span id="sheetDimensionsStatus">20 rows × 6 columns · 100%</span>
           </footer>
         </section>
 
@@ -424,10 +427,12 @@
                 <h3>How to use it</h3>
                 <ul class="spreadsheet-info-list">
                   <li><strong>Select:</strong> tap a cell once. The keyboard stays closed, making the sheet easier to scroll on a phone.</li>
+                  <li><strong>Select a range:</strong> tap Range, then tap the opposite corner. On a computer, Shift+click or Shift+Arrow also extends the selection.</li>
                   <li><strong>Edit:</strong> tap Edit, double-tap a cell, or tap the formula bar. Press Done when finished.</li>
+                  <li><strong>Zoom:</strong> pinch with two fingers directly over the sheet to zoom from 65% to 160%.</li>
                   <li><strong>Navigate:</strong> on a computer use Arrow keys, Tab, Enter, Delete, Ctrl/Cmd+C, and Ctrl/Cmd+V.</li>
-                  <li><strong>Focus mode:</strong> expands the spreadsheet and hides the normal app navigation temporarily.</li>
-                  <li><strong>Copy and paste:</strong> supports a single cell or tab-separated rows copied from another spreadsheet.</li>
+                  <li><strong>Focus mode:</strong> expands the spreadsheet. In landscape, the title/description/status text is removed and Exit moves into the icon toolbar.</li>
+                  <li><strong>Copy and paste:</strong> supports selected ranges and tab-separated rows copied from another spreadsheet.</li>
                 </ul>
               </section>
 
@@ -477,7 +482,7 @@
                 <h3>Formatting and table tools</h3>
                 <ul class="spreadsheet-info-list">
                   <li><strong>RM format:</strong> shows a number as <strong>RM 300.00</strong> while keeping it available for calculations.</li>
-                  <li><strong>Merged cells:</strong> select the first cell, tap Merge, then tap the opposite corner. Select a merged cell and tap Unmerge to separate it.</li>
+                  <li><strong>Merged cells:</strong> select a range and tap Merge, or use the original first-corner/opposite-corner flow. Select a merged cell and tap Unmerge to separate it.</li>
                   <li><strong>Cell size:</strong> use Cell size on a phone. On a computer, drag a row or column edge.</li>
                   <li><strong>Dashboard links:</strong> place Total income, Expenses, Saved, or Available balance in any valid cell.</li>
                   <li><strong>Undo and redo:</strong> available during the current app session.</li>
