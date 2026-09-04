@@ -24,15 +24,15 @@
     })();
   </script>
 
-  <link rel="manifest" href="manifest.webmanifest?v=31">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=31">
-  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=31">
-  <link rel="stylesheet" href="styles.css?v=31">
+  <link rel="manifest" href="manifest.webmanifest?v=32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=32">
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=32">
+  <link rel="stylesheet" href="styles.css?v=32">
 
-  <script src="cycle.js?v=31" defer></script>
-  <script src="db.js?v=31" defer></script>
-  <script src="backup-crypto.js?v=31" defer></script>
-  <script src="app.js?v=31" defer></script>
+  <script src="cycle.js?v=32" defer></script>
+  <script src="db.js?v=32" defer></script>
+  <script src="backup-crypto.js?v=32" defer></script>
+  <script src="app.js?v=32" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -270,7 +270,7 @@
               </svg>
               <span class="sheet-tool-label">Focus</span>
             </button>
-            <button id="sheetEditButton" class="sheet-tool-button primary-tool" type="button" title="Edit selected cell">
+            <button id="sheetEditButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Turn editing on">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"></path></svg>
               <span class="sheet-tool-label">Edit</span>
             </button>
@@ -293,6 +293,14 @@
             <button id="sheetCurrencyButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Toggle Malaysian Ringgit format">
               <span class="sheet-tool-text-icon">RM</span>
               <span class="sheet-tool-label">RM format</span>
+            </button>
+            <button id="sheetAlignButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Cycle text alignment for selected cells">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h11"></path><path d="M4 10h16"></path><path d="M4 14h11"></path><path d="M4 18h16"></path></svg>
+              <span class="sheet-tool-label">Align</span>
+            </button>
+            <button id="sheetFontSizeButton" class="sheet-tool-button" type="button" aria-expanded="false" aria-controls="sheetFontControls" title="Adjust font size for selected cells">
+              <span class="sheet-tool-text-icon">Aa</span>
+              <span class="sheet-tool-label">Font size</span>
             </button>
             <button id="sheetMergeButton" class="sheet-tool-button" type="button" aria-pressed="false" title="Merge or unmerge cells">
               <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="8" height="6" rx="1"></rect><rect x="13" y="5" width="8" height="6" rx="1"></rect><rect x="3" y="13" width="8" height="6" rx="1"></rect><rect x="13" y="13" width="8" height="6" rx="1"></rect></svg>
@@ -365,11 +373,35 @@
             </div>
           </div>
 
+          <div id="sheetFontControls" class="sheet-size-controls sheet-font-controls" hidden>
+            <div class="sheet-size-heading">
+              <div>
+                <span>Selected cells</span>
+                <strong id="sheetFontSelectionLabel">A1</strong>
+              </div>
+              <button id="sheetCloseFontButton" class="secondary-button compact-button" type="button">Done</button>
+            </div>
+
+            <label class="sheet-size-field">
+              <span>Font size</span>
+              <div class="sheet-font-size-row">
+                <button id="sheetFontDecreaseButton" class="secondary-button compact-button" type="button" aria-label="Decrease font size">−</button>
+                <input id="sheetFontSizeRange" type="range" min="10" max="28" step="1" value="13">
+                <button id="sheetFontIncreaseButton" class="secondary-button compact-button" type="button" aria-label="Increase font size">+</button>
+                <output id="sheetFontSizeValue" for="sheetFontSizeRange">13 px</output>
+              </div>
+            </label>
+
+            <div class="sheet-size-actions">
+              <button id="sheetFontResetButton" class="secondary-button compact-button" type="button">Reset font size</button>
+            </div>
+          </div>
+
           <div class="offline-formula-bar" aria-label="Formula bar">
             <span id="activeCellLabel" class="sheet-name-box">A1</span>
             <span class="formula-symbol" aria-hidden="true">fx</span>
-            <input id="formulaInput" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter a value or formula, e.g. =SUM(B2:B10)">
-            <button id="sheetFormulaApplyButton" class="formula-apply-button" type="button">Done</button>
+            <input id="formulaInput" type="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" readonly aria-readonly="true" placeholder="View mode — tap Edit to modify cells">
+            <button id="sheetFormulaApplyButton" class="formula-apply-button" type="button" disabled>Done</button>
           </div>
 
           <div id="sheetGridContainer" class="sheet-scroll offline-sheet-grid" aria-label="Editable offline spreadsheet">
@@ -443,7 +475,7 @@
                 <ul class="spreadsheet-info-list">
                   <li><strong>Select:</strong> tap a cell once. The keyboard stays closed, making the sheet easier to scroll on a phone.</li>
                   <li><strong>Select a range:</strong> tap Range, then tap the opposite corner. On a computer, Shift+click or Shift+Arrow also extends the selection.</li>
-                  <li><strong>Edit:</strong> tap Edit, double-tap a cell, or tap the formula bar. Press Done when finished.</li>
+                  <li><strong>View / Edit mode:</strong> the sheet opens in view-only mode. Tap <strong>Edit</strong> before changing any cell. Tap <strong>Editing</strong> again to lock the sheet back to view-only mode.</li>
                   <li><strong>Zoom:</strong> pinch with two fingers directly over the sheet to zoom from 65% to 160%.</li>
                   <li><strong>Navigate:</strong> on a computer use Arrow keys, Tab, Enter, Delete, Ctrl/Cmd+C, and Ctrl/Cmd+V.</li>
                   <li><strong>Focus mode:</strong> expands the spreadsheet. In landscape, the title/description/status text is removed and Exit moves into the icon toolbar.</li>
@@ -497,6 +529,8 @@
                 <h3>Formatting and table tools</h3>
                 <ul class="spreadsheet-info-list">
                   <li><strong>RM format:</strong> shows a number as <strong>RM 300.00</strong> while keeping it available for calculations.</li>
+                  <li><strong>Alignment:</strong> select one cell or a range and tap Align to cycle Auto → Left → Center → Right.</li>
+                  <li><strong>Font size:</strong> select cells, tap Font size, then choose 10–28 px. Reset returns to the default size.</li>
                   <li><strong>Merged cells:</strong> select a range and tap Merge, or use the original first-corner/opposite-corner flow. Select a merged cell and tap Unmerge to separate it.</li>
                   <li><strong>Cell size:</strong> use Cell size on a phone. On a computer, drag a row or column edge.</li>
                   <li><strong>Dashboard links:</strong> place Total income, Expenses, Saved, or Available balance in any valid cell.</li>

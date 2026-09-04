@@ -27,6 +27,7 @@ const state = {
   sheetLastTapCell: "",
   sheetLastTapAt: 0,
   sheetFocusMode: false,
+  sheetEditMode: false,
   sheetClipboardText: "",
   python: null,
   pythonReady: false,
@@ -45,6 +46,9 @@ const SHEET_MAX_COLUMNS = 52; // A through AZ
 const SHEET_ZOOM_MIN = 0.65;
 const SHEET_ZOOM_MAX = 1.6;
 const SHEET_ZOOM_STORAGE_KEY = "pocket-budget-sheet-zoom";
+const SHEET_DEFAULT_FONT_SIZE = 13;
+const SHEET_FONT_SIZE_MIN = 10;
+const SHEET_FONT_SIZE_MAX = 28;
 
 const SHEET_SIZE_LIMITS = {
   minColumn: 48,
@@ -204,8 +208,15 @@ function bindEvents() {
   document.getElementById("sheetPasteButton").addEventListener("click", pasteIntoSelectedSheetCell);
   document.getElementById("sheetUndoButton").addEventListener("click", undoSheetChange);
   document.getElementById("sheetRedoButton").addEventListener("click", redoSheetChange);
-  document.getElementById("sheetEditButton").addEventListener("click", focusSheetFormulaEditor);
+  document.getElementById("sheetEditButton").addEventListener("click", toggleSheetEditMode);
   document.getElementById("sheetRangeButton").addEventListener("click", toggleSheetRangeSelectionMode);
+  document.getElementById("sheetAlignButton").addEventListener("click", cycleSheetTextAlignment);
+  document.getElementById("sheetFontSizeButton").addEventListener("click", toggleSheetFontControls);
+  document.getElementById("sheetCloseFontButton").addEventListener("click", () => setSheetFontControlsOpen(false));
+  document.getElementById("sheetFontSizeRange").addEventListener("input", updateSelectedSheetFontSize);
+  document.getElementById("sheetFontDecreaseButton").addEventListener("click", () => nudgeSelectedSheetFontSize(-1));
+  document.getElementById("sheetFontIncreaseButton").addEventListener("click", () => nudgeSelectedSheetFontSize(1));
+  document.getElementById("sheetFontResetButton").addEventListener("click", resetSelectedSheetFontSize);
   document.getElementById("sheetFocusButton").addEventListener("click", () => setSheetFocusMode(!state.sheetFocusMode));
   document.getElementById("sheetFormulaApplyButton").addEventListener("click", applySheetFormulaEdit);
 
@@ -294,6 +305,7 @@ function closeSpreadsheetInfo() {
 }
 
 function openSheetLinkDialog() {
+  if (!state.sheetEditMode) { showToast("Tap Edit before changing dashboard links."); return; }
   const dialog = document.getElementById("sheetLinkDialog");
   if (!dialog) return;
   const cellInput = document.getElementById("sheetLinkCell");
@@ -390,7 +402,7 @@ async function loadPythonEngine() {
       indexURL: "https://cdn.jsdelivr.net/pyodide/v314.0.3/full/"
     });
 
-    const response = await fetch("calculations.py?v=31", { cache: "no-cache" });
+    const response = await fetch("calculations.py?v=32", { cache: "no-cache" });
     if (!response.ok) {
       throw new Error("Could not load calculations.py");
     }
@@ -439,6 +451,7 @@ async function refreshAll() {
   renderCategoryList();
   renderAllTransactions();
   renderCustomSheet();
+  setSheetEditMode(false, { silent: true });
   renderDashboard();
 }
 
@@ -446,6 +459,7 @@ function showView(viewName) {
   const validViews = ["home", "transactions", "add", "sheet", "settings"];
   const nextView = validViews.includes(viewName) ? viewName : "home";
   if (nextView !== "sheet" && state.sheetFocusMode) setSheetFocusMode(false);
+  if (nextView !== "sheet" && state.sheetEditMode) setSheetEditMode(false, { silent: true });
   if (nextView !== "sheet" && state.sheetMergeStart) {
     state.sheetMergeStart = null;
     updateSheetMergeButton();
@@ -1803,6 +1817,28 @@ function normaliseSheetFormats(sourceFormats, rows, cols) {
   return formats;
 }
 
+function normaliseSheetCellStyles(sourceStyles, rows, cols) {
+  const styles = {};
+  if (!sourceStyles || typeof sourceStyles !== "object") return styles;
+
+  for (const [sourceCell, sourceStyle] of Object.entries(sourceStyles)) {
+    const cell = String(sourceCell || "").toUpperCase();
+    const parsed = parseCellKey(cell);
+    if (!parsed || parsed.row > rows || parsed.col > cols || !sourceStyle || typeof sourceStyle !== "object") continue;
+
+    const style = {};
+    const align = String(sourceStyle.align || "").toLowerCase();
+    if (["left", "center", "right"].includes(align)) style.align = align;
+
+    const fontSize = Number(sourceStyle.fontSize);
+    if (Number.isFinite(fontSize)) style.fontSize = Math.round(clampNumber(fontSize, SHEET_FONT_SIZE_MIN, SHEET_FONT_SIZE_MAX));
+
+    if (Object.keys(style).length) styles[cell] = style;
+  }
+
+  return styles;
+}
+
 function normaliseCustomSheet(sheet) {
   const source = sheet || {};
   const rows = Math.min(Math.max(Number(source.rows || 20), 1), SHEET_MAX_ROWS);
@@ -1835,6 +1871,7 @@ function normaliseCustomSheet(sheet) {
     columnWidths,
     rowHeights,
     formats: normaliseSheetFormats(source.formats, rows, cols),
+    cellStyles: normaliseSheetCellStyles(source.cellStyles, rows, cols),
     merges: normaliseSheetMerges(source.merges, rows, cols),
     links: normaliseSheetLinks(source.links, rows, cols),
     createdAt: source.createdAt || new Date().toISOString(),
@@ -1912,6 +1949,11 @@ function renderCustomSheet() {
       const rowSpan = merge ? merge.endRow - merge.startRow + 1 : 1;
       const rangeLabel = merge ? getSheetMergeRangeLabel(merge) : key;
       const numericValue = link || isFormula || tryParseSheetNumber(rawValue) !== null;
+      const textStyle = getSheetCellTextStyle(anchorKey);
+      const valueInlineStyle = [
+        textStyle.align ? `text-align:${textStyle.align}` : "",
+        textStyle.fontSize ? `font-size:${textStyle.fontSize}px` : ""
+      ].filter(Boolean).join(";");
       const classes = [
         isHeaderRow ? "sheet-table-header-cell" : "",
         merge ? "sheet-merged-cell" : "",
@@ -1928,7 +1970,7 @@ function renderCustomSheet() {
       return `
         <td class="${classes}" role="gridcell" tabindex="-1" aria-selected="false" data-sheet-cell="${anchorKey}" data-sheet-column="${letter}" data-sheet-row="${rowNumber}" ${colSpan > 1 ? `colspan="${colSpan}"` : ""} ${rowSpan > 1 ? `rowspan="${rowSpan}"` : ""} style="width:${width}px;min-width:${width}px;max-width:${width}px;height:${height}px" title="${escapeHtml(cellTitle)}">
           <div class="js-sheet-cell" data-cell="${anchorKey}" data-placeholder="${isHeaderRow ? "Header" : ""}" style="height:${height}px;min-height:${height}px">
-            <span class="js-sheet-cell-value">${escapeHtml(displayValue)}</span>
+            <span class="js-sheet-cell-value"${valueInlineStyle ? ` style="${valueInlineStyle}"` : ""}>${escapeHtml(displayValue)}</span>
           </div>
         </td>`;
     }).join("");
@@ -1954,6 +1996,7 @@ function renderCustomSheet() {
   updateSheetMergeSelectionVisual();
   updateSheetHistoryButtons();
   updateSheetDimensionsStatus();
+  updateSheetEditingControls();
   setSheetSaveStatus("Saved locally", "saved");
 
   if (scrollContainer) {
@@ -1987,10 +2030,11 @@ function handleSheetCellClick(event) {
   }
 
   document.getElementById("customSheetTable")?.focus({ preventScroll: true });
-  if (isSecondTap && !event.shiftKey) focusSheetFormulaEditor();
+  if (isSecondTap && !event.shiftKey && state.sheetEditMode) focusSheetFormulaEditor();
 }
 
 function handleSheetCellDoubleClick(event) {
+  if (!state.sheetEditMode) return;
   const cell = event.target.closest?.("td[data-sheet-cell]");
   if (!cell || state.sheetMergeStart) return;
   event.preventDefault();
@@ -1999,6 +2043,10 @@ function handleSheetCellDoubleClick(event) {
 }
 
 function focusSheetFormulaEditor() {
+  if (!state.sheetEditMode) {
+    showToast("View mode is on. Tap Edit to make changes.");
+    return;
+  }
   const input = document.getElementById("formulaInput");
   if (!input || !state.activeSheetCell) return;
   input.value = getSheetRawValue(state.activeSheetCell);
@@ -2008,7 +2056,7 @@ function focusSheetFormulaEditor() {
 }
 
 function beginSheetFormulaEdit() {
-  if (!state.activeSheetCell) return;
+  if (!state.sheetEditMode || !state.activeSheetCell) return;
   state.sheetFormulaOriginalValue = getSheetRawValue(state.activeSheetCell);
 }
 
@@ -2057,12 +2105,14 @@ function handleSheetGridKeyDown(event) {
 
   if (commandKey && key === "v") {
     event.preventDefault();
-    pasteIntoSelectedSheetCell();
+    if (state.sheetEditMode) pasteIntoSelectedSheetCell();
+    else showToast("Tap Edit before pasting into the sheet.");
     return;
   }
 
   if (commandKey && key === "z") {
     event.preventDefault();
+    if (!state.sheetEditMode) { showToast("Tap Edit before changing the sheet."); return; }
     if (event.shiftKey) redoSheetChange(); else undoSheetChange();
     return;
   }
@@ -2084,10 +2134,12 @@ function handleSheetGridKeyDown(event) {
     moveActiveSheetCell(0, event.shiftKey ? -1 : 1, true);
   } else if (event.key === "Enter" || event.key === "F2") {
     event.preventDefault();
-    focusSheetFormulaEditor();
+    if (state.sheetEditMode) focusSheetFormulaEditor();
+    else showToast("Tap Edit to make changes.");
   } else if (event.key === "Delete" || event.key === "Backspace") {
     event.preventDefault();
-    clearSelectedSheetCell();
+    if (state.sheetEditMode) clearSelectedSheetCell();
+    else showToast("Tap Edit before clearing cells.");
   } else if (event.key === "Escape") {
     if (state.sheetMergeStart) {
       state.sheetMergeStart = null;
@@ -2109,6 +2161,71 @@ function moveActiveSheetCell(rowDelta, columnDelta, shouldScroll = true) {
   const nextRow = Math.min(Math.max(current.row + rowDelta, 1), state.customSheet.rows);
   const nextColumn = Math.min(Math.max(current.col + columnDelta, 1), state.customSheet.cols);
   setActiveSheetCell(`${columnIndexToName(nextColumn)}${nextRow}`, true, shouldScroll);
+}
+
+function setSheetEditMode(enabled, options = {}) {
+  state.sheetEditMode = Boolean(enabled);
+  const workspace = document.getElementById("offlineSheetWorkspace");
+  if (workspace) workspace.classList.toggle("sheet-edit-mode", state.sheetEditMode);
+
+  const button = document.getElementById("sheetEditButton");
+  if (button) {
+    button.setAttribute("aria-pressed", String(state.sheetEditMode));
+    button.classList.toggle("primary-tool", state.sheetEditMode);
+    button.classList.toggle("active-tool", state.sheetEditMode);
+    button.title = state.sheetEditMode ? "Turn editing off and return to view mode" : "Turn editing on";
+    setSheetToolLabel(button, state.sheetEditMode ? "Editing" : "Edit");
+  }
+
+  const formulaInput = document.getElementById("formulaInput");
+  if (formulaInput) {
+    formulaInput.readOnly = !state.sheetEditMode;
+    formulaInput.setAttribute("aria-readonly", String(!state.sheetEditMode));
+    formulaInput.placeholder = state.sheetEditMode
+      ? "Enter a value or formula, e.g. =SUM(B2:B10)"
+      : "View mode — tap Edit to modify cells";
+    if (!state.sheetEditMode && document.activeElement === formulaInput) formulaInput.blur();
+  }
+
+  const applyButton = document.getElementById("sheetFormulaApplyButton");
+  if (applyButton) applyButton.disabled = !state.sheetEditMode;
+
+  if (!state.sheetEditMode) {
+    setSheetSizeControlsOpen(false);
+    setSheetFontControlsOpen(false);
+    state.sheetMergeStart = null;
+    updateSheetMergeSelectionVisual();
+    const linkDialog = document.getElementById("sheetLinkDialog");
+    if (linkDialog?.open) closeSheetLinkDialog();
+  }
+
+  updateSheetEditingControls();
+  updateSheetHistoryButtons();
+  updateSheetCurrencyButton();
+  updateSheetAlignmentButton();
+  updateSheetMergeButton();
+
+  if (!options.silent) showToast(state.sheetEditMode ? "Editing enabled." : "View-only mode enabled.");
+}
+
+function toggleSheetEditMode() {
+  setSheetEditMode(!state.sheetEditMode);
+}
+
+function updateSheetEditingControls() {
+  const mutatingIds = [
+    "sheetPasteButton", "sheetDeleteButton", "sheetCurrencyButton", "sheetAlignButton",
+    "sheetFontSizeButton", "sheetMergeButton", "sheetSizeButton", "sheetAddRowButton",
+    "sheetAddColumnButton", "sheetHeaderButton", "sheetLinkOpenButton", "sheetClearButton"
+  ];
+  mutatingIds.forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.disabled = !state.sheetEditMode;
+  });
+
+  document.querySelectorAll("#sheetSizeControls button, #sheetSizeControls input, #sheetFontControls button, #sheetFontControls input, #sheetLinkDialog button, #sheetLinkDialog input, #sheetLinkDialog select").forEach((element) => {
+    element.disabled = !state.sheetEditMode;
+  });
 }
 
 function setSheetFocusMode(enabled) {
@@ -2159,6 +2276,7 @@ function getSheetHistorySnapshot() {
     columnWidths: sheet.columnWidths,
     rowHeights: sheet.rowHeights,
     formats: sheet.formats,
+    cellStyles: sheet.cellStyles,
     merges: sheet.merges,
     links: sheet.links
   };
@@ -2192,8 +2310,8 @@ function commitSheetHistory() {
 function updateSheetHistoryButtons() {
   const undoButton = document.getElementById("sheetUndoButton");
   const redoButton = document.getElementById("sheetRedoButton");
-  if (undoButton) undoButton.disabled = state.sheetHistoryIndex <= 0;
-  if (redoButton) redoButton.disabled = state.sheetHistoryIndex < 0 || state.sheetHistoryIndex >= state.sheetHistory.length - 1;
+  if (undoButton) undoButton.disabled = !state.sheetEditMode || state.sheetHistoryIndex <= 0;
+  if (redoButton) redoButton.disabled = !state.sheetEditMode || state.sheetHistoryIndex < 0 || state.sheetHistoryIndex >= state.sheetHistory.length - 1;
 }
 
 async function restoreSheetHistorySnapshot(snapshot) {
@@ -2214,6 +2332,7 @@ async function restoreSheetHistorySnapshot(snapshot) {
 }
 
 async function undoSheetChange() {
+  if (!state.sheetEditMode) return;
   if (state.sheetHistoryIndex <= 0) {
     showToast("Nothing to undo.");
     return;
@@ -2225,6 +2344,7 @@ async function undoSheetChange() {
 }
 
 async function redoSheetChange() {
+  if (!state.sheetEditMode) return;
   if (state.sheetHistoryIndex >= state.sheetHistory.length - 1) {
     showToast("Nothing to redo.");
     return;
@@ -2236,7 +2356,7 @@ async function redoSheetChange() {
 }
 
 async function clearSelectedSheetCell() {
-  if (!state.customSheet || !state.activeSheetCell) return;
+  if (!state.sheetEditMode || !state.customSheet || !state.activeSheetCell) return;
   const targets = getUniqueSelectedSheetAnchors();
   if (!targets.length) return;
 
@@ -2287,7 +2407,7 @@ async function readSheetClipboardText() {
 }
 
 async function pasteIntoSelectedSheetCell() {
-  if (!state.customSheet || !state.activeSheetCell) return;
+  if (!state.sheetEditMode || !state.customSheet || !state.activeSheetCell) return;
   const clipboardText = await readSheetClipboardText();
   if (clipboardText === "") {
     showToast("No clipboard content available.");
@@ -2449,6 +2569,8 @@ function setSheetSelection(startKey, endKey, syncFormula = true, shouldScroll = 
 
   updateSheetSizeControls();
   updateSheetCurrencyButton();
+  updateSheetAlignmentButton();
+  updateSheetFontControls();
   updateSheetMergeButton();
   updateSheetMergeSelectionVisual();
   updateSheetRangeButton();
@@ -2523,7 +2645,7 @@ function extendSheetSelectionBy(rowDelta, colDelta) {
 }
 
 function updateActiveCellFromFormulaBar(event) {
-  if (!state.activeSheetCell || !state.customSheet) return;
+  if (!state.sheetEditMode || !state.activeSheetCell || !state.customSheet) return;
   const value = event.target.value;
   const removedLink = removeSheetLinkForCell(state.activeSheetCell);
   setSheetRawValue(state.activeSheetCell, value);
@@ -2608,19 +2730,19 @@ function updateSheetCurrencyButton() {
   const linkedCount = targets.length - editableTargets.length;
   const allCurrency = editableTargets.length > 0 && editableTargets.every((cell) => getEffectiveSheetCellFormat(cell) === "currency");
 
-  button.disabled = editableTargets.length === 0;
-  setSheetToolLabel(button, button.disabled ? "RM linked" : allCurrency ? "Remove RM" : "RM format");
+  button.disabled = !state.sheetEditMode || editableTargets.length === 0;
+  setSheetToolLabel(button, editableTargets.length === 0 ? "RM linked" : allCurrency ? "Remove RM" : "RM format");
   button.classList.toggle("active-tool", allCurrency);
   button.setAttribute("aria-pressed", String(allCurrency));
   button.title = linkedCount && editableTargets.length
     ? "Apply RM formatting to the editable cells in the selected range"
-    : button.disabled
+    : editableTargets.length === 0
       ? "Dashboard-linked values always use RM formatting"
       : allCurrency ? "Show selected cells as plain numbers" : "Show selected cells as Malaysian Ringgit";
 }
 
 async function toggleSheetCurrencyFormat() {
-  if (!state.customSheet || !state.activeSheetCell) return;
+  if (!state.sheetEditMode || !state.customSheet || !state.activeSheetCell) return;
   const targets = getUniqueSelectedSheetAnchors().filter((cell) => !getSheetLinkForCell(cell));
   if (!targets.length) {
     showToast("Dashboard-linked cells already use RM formatting.");
@@ -2635,6 +2757,135 @@ async function toggleSheetCurrencyFormat() {
   showToast(nextFormat === "currency"
     ? `${getSheetSelectionLabel()} now displays RM currency.`
     : `${getSheetSelectionLabel()} now displays plain numbers.`);
+}
+
+function getSheetCellTextStyle(cellKey) {
+  if (!state.customSheet) return {};
+  const merge = getSheetMergeForCell(cellKey);
+  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : String(cellKey || "").toUpperCase();
+  const source = state.customSheet.cellStyles?.[resolvedCell];
+  if (!source || typeof source !== "object") return {};
+  return {
+    align: ["left", "center", "right"].includes(source.align) ? source.align : "",
+    fontSize: Number.isFinite(Number(source.fontSize)) ? Math.round(clampNumber(Number(source.fontSize), SHEET_FONT_SIZE_MIN, SHEET_FONT_SIZE_MAX)) : null
+  };
+}
+
+function setSheetCellTextStyle(cellKey, patch) {
+  if (!state.customSheet) return;
+  const merge = getSheetMergeForCell(cellKey);
+  const resolvedCell = merge ? getSheetMergeAnchorKey(merge) : String(cellKey || "").toUpperCase();
+  if (!state.customSheet.cellStyles) state.customSheet.cellStyles = {};
+  const current = { ...(state.customSheet.cellStyles[resolvedCell] || {}) };
+
+  if (Object.prototype.hasOwnProperty.call(patch, "align")) {
+    if (["left", "center", "right"].includes(patch.align)) current.align = patch.align;
+    else delete current.align;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "fontSize")) {
+    const size = Number(patch.fontSize);
+    if (Number.isFinite(size)) current.fontSize = Math.round(clampNumber(size, SHEET_FONT_SIZE_MIN, SHEET_FONT_SIZE_MAX));
+    else delete current.fontSize;
+  }
+
+  if (Object.keys(current).length) state.customSheet.cellStyles[resolvedCell] = current;
+  else delete state.customSheet.cellStyles[resolvedCell];
+}
+
+function updateSheetAlignmentButton() {
+  const button = document.getElementById("sheetAlignButton");
+  if (!button || !state.customSheet) return;
+  const targets = getUniqueSelectedSheetAnchors();
+  const values = [...new Set(targets.map((cell) => getSheetCellTextStyle(cell).align || "auto"))];
+  const alignment = values.length === 1 ? values[0] : "mixed";
+  button.disabled = !state.sheetEditMode;
+  const labelMap = { auto: "Align", left: "Left", center: "Center", right: "Right", mixed: "Align" };
+  setSheetToolLabel(button, labelMap[alignment] || "Align");
+  button.classList.toggle("active-tool", alignment !== "auto" && alignment !== "mixed");
+  button.setAttribute("aria-pressed", String(alignment !== "auto" && alignment !== "mixed"));
+  button.title = alignment === "mixed" ? "Selected cells use mixed alignment" : `Text alignment: ${alignment}. Tap to cycle.`;
+}
+
+async function cycleSheetTextAlignment() {
+  if (!state.sheetEditMode || !state.customSheet) return;
+  const targets = getUniqueSelectedSheetAnchors();
+  if (!targets.length) return;
+  const values = [...new Set(targets.map((cell) => getSheetCellTextStyle(cell).align || "auto"))];
+  const current = values.length === 1 ? values[0] : "auto";
+  const order = ["auto", "left", "center", "right"];
+  const next = order[(Math.max(order.indexOf(current), 0) + 1) % order.length];
+  targets.forEach((cell) => setSheetCellTextStyle(cell, { align: next === "auto" ? null : next }));
+  await saveCustomSheetNow();
+  renderCustomSheet();
+  showToast(`${getSheetSelectionLabel()} alignment: ${next}.`);
+}
+
+function getSelectedSheetFontSizeState() {
+  const targets = getUniqueSelectedSheetAnchors();
+  if (!targets.length) return { value: SHEET_DEFAULT_FONT_SIZE, mixed: false, custom: false };
+  const values = targets.map((cell) => getSheetCellTextStyle(cell).fontSize || SHEET_DEFAULT_FONT_SIZE);
+  const unique = [...new Set(values)];
+  return { value: unique.length === 1 ? unique[0] : SHEET_DEFAULT_FONT_SIZE, mixed: unique.length > 1, custom: targets.some((cell) => Boolean(getSheetCellTextStyle(cell).fontSize)) };
+}
+
+function setSheetFontControlsOpen(open) {
+  const panel = document.getElementById("sheetFontControls");
+  const button = document.getElementById("sheetFontSizeButton");
+  if (!panel || !button) return;
+  const shouldOpen = Boolean(open) && state.sheetEditMode;
+  panel.hidden = !shouldOpen;
+  button.setAttribute("aria-expanded", String(shouldOpen));
+  button.classList.toggle("active-tool", shouldOpen);
+  if (shouldOpen) {
+    setSheetSizeControlsOpen(false);
+    updateSheetFontControls();
+  }
+}
+
+function toggleSheetFontControls() {
+  const panel = document.getElementById("sheetFontControls");
+  if (!state.sheetEditMode || !panel) return;
+  setSheetFontControlsOpen(panel.hidden);
+}
+
+function updateSheetFontControls() {
+  const range = document.getElementById("sheetFontSizeRange");
+  const output = document.getElementById("sheetFontSizeValue");
+  const label = document.getElementById("sheetFontSelectionLabel");
+  if (!range || !output || !label || !state.customSheet) return;
+  const current = getSelectedSheetFontSizeState();
+  const fontButton = document.getElementById("sheetFontSizeButton");
+  if (fontButton) setSheetToolLabel(fontButton, current.mixed ? "Font size" : current.custom ? `${current.value}px` : "Font size");
+  range.value = String(current.value);
+  output.textContent = current.mixed ? "Mixed" : `${current.value} px`;
+  label.textContent = getSheetSelectionLabel();
+}
+
+async function applySelectedSheetFontSize(value) {
+  if (!state.sheetEditMode || !state.customSheet) return;
+  const size = Math.round(clampNumber(Number(value) || SHEET_DEFAULT_FONT_SIZE, SHEET_FONT_SIZE_MIN, SHEET_FONT_SIZE_MAX));
+  getUniqueSelectedSheetAnchors().forEach((cell) => setSheetCellTextStyle(cell, { fontSize: size }));
+  await saveCustomSheetNow();
+  renderCustomSheet();
+  setSheetFontControlsOpen(true);
+}
+
+function updateSelectedSheetFontSize(event) {
+  applySelectedSheetFontSize(event.target.value);
+}
+
+function nudgeSelectedSheetFontSize(delta) {
+  const current = getSelectedSheetFontSizeState();
+  applySelectedSheetFontSize(current.value + delta);
+}
+
+async function resetSelectedSheetFontSize() {
+  if (!state.sheetEditMode || !state.customSheet) return;
+  getUniqueSelectedSheetAnchors().forEach((cell) => setSheetCellTextStyle(cell, { fontSize: null }));
+  await saveCustomSheetNow();
+  renderCustomSheet();
+  setSheetFontControlsOpen(true);
+  showToast(`${getSheetSelectionLabel()} font size reset.`);
 }
 
 function setSheetRawValue(cellKey, value) {
@@ -2707,7 +2958,7 @@ function resolveSheetLinkTarget(value) {
 }
 
 async function linkDashboardValueToSheet() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const metric = document.getElementById("sheetLinkMetric").value || "available";
   const input = document.getElementById("sheetLinkCell");
   const target = resolveSheetLinkTarget(input.value);
@@ -2739,7 +2990,7 @@ async function linkDashboardValueToSheet() {
 }
 
 async function unlinkDashboardValueFromSheet() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const input = document.getElementById("sheetLinkCell");
   const target = resolveSheetLinkTarget(input.value) || state.activeSheetCell;
   const removed = removeSheetLinkForCell(target);
@@ -2813,10 +3064,15 @@ function toggleSheetSizeControls() {
 function setSheetSizeControlsOpen(isOpen) {
   const panel = document.getElementById("sheetSizeControls");
   const button = document.getElementById("sheetSizeButton");
-  panel.hidden = !isOpen;
-  button.setAttribute("aria-expanded", String(Boolean(isOpen)));
-  button.classList.toggle("active-tool", Boolean(isOpen));
-  if (isOpen) updateSheetSizeControls();
+  if (!panel || !button) return;
+  const shouldOpen = Boolean(isOpen) && state.sheetEditMode;
+  panel.hidden = !shouldOpen;
+  button.setAttribute("aria-expanded", String(shouldOpen));
+  button.classList.toggle("active-tool", shouldOpen);
+  if (shouldOpen) {
+    setSheetFontControlsOpen(false);
+    updateSheetSizeControls();
+  }
 }
 
 function updateSheetSizeControls() {
@@ -2842,6 +3098,7 @@ function updateSheetSizeControls() {
 }
 
 function updateSelectedSheetColumnWidth(event) {
+  if (!state.sheetEditMode) return;
   const parsed = parseCellKey(state.activeSheetCell || "A1");
   if (!parsed || !state.customSheet) return;
   const letter = columnIndexToName(parsed.col);
@@ -2849,6 +3106,7 @@ function updateSelectedSheetColumnWidth(event) {
 }
 
 function updateSelectedSheetRowHeight(event) {
+  if (!state.sheetEditMode) return;
   const parsed = parseCellKey(state.activeSheetCell || "A1");
   if (!parsed || !state.customSheet) return;
   setSheetRowHeight(parsed.row, event.target.value, true);
@@ -2920,7 +3178,7 @@ function updateRenderedSheetTableWidth() {
 }
 
 async function applySelectedWidthToAllColumns() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const parsed = parseCellKey(state.activeSheetCell || "A1") || { col: 1 };
   const width = getSheetColumnWidth(columnIndexToName(parsed.col));
   state.customSheet.columnWidths = {};
@@ -2933,7 +3191,7 @@ async function applySelectedWidthToAllColumns() {
 }
 
 async function applySelectedHeightToAllRows() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const parsed = parseCellKey(state.activeSheetCell || "A1") || { row: 1 };
   const height = getSheetRowHeight(parsed.row);
   state.customSheet.rowHeights = {};
@@ -2946,7 +3204,7 @@ async function applySelectedHeightToAllRows() {
 }
 
 async function resetSelectedSheetSize() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const parsed = parseCellKey(state.activeSheetCell || "A1");
   if (!parsed) return;
   const letter = columnIndexToName(parsed.col);
@@ -2958,7 +3216,7 @@ async function resetSelectedSheetSize() {
 }
 
 async function resetAllSheetSizes() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   state.customSheet.columnWidths = {};
   state.customSheet.rowHeights = {};
   await saveCustomSheetNow();
@@ -2970,6 +3228,7 @@ async function resetAllSheetSizes() {
 function updateSheetMergeButton() {
   const button = document.getElementById("sheetMergeButton");
   if (!button) return;
+  button.disabled = !state.sheetEditMode;
 
   if (state.sheetMergeStart) {
     setSheetToolLabel(button, "Cancel merge");
@@ -2996,7 +3255,7 @@ function updateSheetMergeSelectionVisual() {
 }
 
 async function toggleSheetMergeAction() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
 
   if (state.sheetMergeStart) {
     state.sheetMergeStart = null;
@@ -3126,7 +3385,7 @@ async function unmergeSheetRange(merge) {
 }
 
 function handleSheetResizePointerDown(event) {
-  if (!state.customSheet || event.button > 0) return;
+  if (!state.sheetEditMode || !state.customSheet || event.button > 0) return;
   const columnHandle = event.target.closest?.("[data-resize-column]");
   const rowHandle = event.target.closest?.("[data-resize-row]");
   if (!columnHandle && !rowHandle) return;
@@ -3212,6 +3471,9 @@ function updateRenderedSheetCell(cellElement, cellKey) {
   const displayValue = getSheetCellDisplayValue(cellKey);
 
   valueElement.textContent = displayValue;
+  const textStyle = getSheetCellTextStyle(cellKey);
+  valueElement.style.textAlign = textStyle.align || "";
+  valueElement.style.fontSize = textStyle.fontSize ? `${textStyle.fontSize}px` : "";
   cellElement.classList.toggle("sheet-linked-cell", Boolean(link));
   cellElement.classList.toggle("sheet-formula-cell", isFormula);
   cellElement.classList.toggle("sheet-currency-cell", effectiveFormat === "currency");
@@ -3239,7 +3501,7 @@ async function saveCustomSheetNow(options = {}) {
 }
 
 async function addCustomSheetRow() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   const currentRows = Number(state.customSheet.rows || 20);
   if (currentRows >= SHEET_MAX_ROWS) {
     showToast(`Maximum ${SHEET_MAX_ROWS} rows reached.`);
@@ -3253,7 +3515,7 @@ async function addCustomSheetRow() {
 }
 
 async function addCustomSheetColumn() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
 
   const currentColumns = Number(state.customSheet.cols || 6);
   if (currentColumns >= SHEET_MAX_COLUMNS) {
@@ -3279,7 +3541,7 @@ async function addCustomSheetColumn() {
 }
 
 async function toggleCustomSheetHeader() {
-  if (!state.customSheet) return;
+  if (!state.sheetEditMode || !state.customSheet) return;
   state.customSheet.headerRow = !state.customSheet.headerRow;
   await saveCustomSheetNow();
   renderCustomSheet();
@@ -3287,6 +3549,7 @@ async function toggleCustomSheetHeader() {
 }
 
 async function clearCustomSheetData() {
+  if (!state.sheetEditMode) return;
   const confirmed = window.confirm("Clear every cell in the custom sheet?");
   if (!confirmed) return;
 

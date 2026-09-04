@@ -233,6 +233,7 @@ const BudgetDB = (() => {
       columnWidths: {},
       rowHeights: {},
       formats: {},
+      cellStyles: {},
       merges: [],
       links: [],
       createdAt: new Date().toISOString(),
@@ -262,6 +263,7 @@ const BudgetDB = (() => {
       columnWidths: sheet.columnWidths && typeof sheet.columnWidths === "object" ? sheet.columnWidths : {},
       rowHeights: sheet.rowHeights && typeof sheet.rowHeights === "object" ? sheet.rowHeights : {},
       formats: sheet.formats && typeof sheet.formats === "object" ? sheet.formats : {},
+      cellStyles: sheet.cellStyles && typeof sheet.cellStyles === "object" ? sheet.cellStyles : {},
       merges: Array.isArray(sheet.merges) ? sheet.merges : [],
       links: Array.isArray(sheet.links) ? sheet.links : [],
       updatedAt: new Date().toISOString()

@@ -3345,3 +3345,60 @@ body.sheet-focus-mode .offline-sheet-workspace {
     min-height: 0;
   }
 }
+
+
+/* Version 32: view-only mode, text alignment and font size */
+.offline-sheet-workspace:not(.sheet-edit-mode) .offline-formula-bar input {
+  cursor: default;
+  background: color-mix(in srgb, var(--surface-soft) 78%, var(--surface));
+  color: var(--muted);
+}
+
+.offline-sheet-workspace:not(.sheet-edit-mode) .custom-sheet-table td {
+  cursor: default;
+}
+
+#sheetEditButton[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--line));
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.sheet-font-size-row {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1fr) auto 84px;
+  align-items: center;
+  gap: 10px;
+}
+
+.sheet-font-size-row > button {
+  min-width: 44px;
+  min-height: 42px;
+  padding-inline: 10px;
+  font-size: 1.15rem;
+}
+
+.sheet-font-size-row output {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .sheet-font-size-row {
+    grid-template-columns: 44px minmax(80px, 1fr) 44px 72px;
+    gap: 6px;
+  }
+
+  .sheet-font-size-row output {
+    padding-inline: 6px;
+    font-size: 0.72rem;
+  }
+}
